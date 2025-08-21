@@ -26,5 +26,4 @@ This app enables users to connect, chat instantly, and share messages seamlessly
 
 ---
 
-## 📂 Folder Structure
 
