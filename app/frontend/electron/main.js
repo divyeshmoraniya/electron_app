@@ -1,33 +1,52 @@
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+let win;
+
 const createWindow = () => {
-    const win = new BrowserWindow({
-        width: 800,
-        height: 600
-    })
+  win = new BrowserWindow({
+    width: 800,
+    height: 600,
+    icon: path.join(__dirname, "..", "react", "src", "assets", "chat.ico"),
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"), // use preload
+    },
+  });
 
-    //   win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html")) // for production
-    win.loadURL("http://localhost:5174");
+  win.loadURL("http://localhost:5173"); // dev
+  // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html")); // prod
 
-}
+  Menu.setApplicationMenu(null);
 
-app.whenReady().then(() => {
-    createWindow()
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow()
-        }
-    })
-})
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit()
+  // progress bar example
+  let c = 0;
+  const INCREMENT = 0.03;
+  const INTERVAL_DELAY = 100;
+  const progressInterval = setInterval(() => {
+    if (win && !win.isDestroyed()) {
+      win.setProgressBar(c);
     }
-})
+    if (c < 1) {
+      c += INCREMENT;
+    } else {
+      win.setProgressBar(-1);
+      clearInterval(progressInterval);
+    }
+  }, INTERVAL_DELAY);
+};
+
+// 🔹 listen for online status from renderer
+ipcMain.on("online-status-changed", (event, status) => {
+  console.log("User is online?", status);
+  // you can store in DB, update UI, send to backend etc.
+});
+
+app.whenReady().then(createWindow);
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
