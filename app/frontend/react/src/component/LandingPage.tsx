@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import { MessageCircle, Users, Shield, Zap, Menu, X, ArrowRight, Star, Globe, Lock, Smartphone } from 'lucide-react';
+import { useAuth, UserButton, SignInButton, SignUpButton ,useUser } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 
 const LandingPage = () => {
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [currentTestimonial, setCurrentTestimonial] = useState(0);
+    const { isSignedIn } = useAuth();
+    const {user} = useUser();
+
+    console.log(user);
+
+
 
     useEffect(() => {
         const handleScroll = () => {
@@ -52,6 +60,13 @@ const LandingPage = () => {
         setIsMenuOpen(false);
     };
 
+    const openChat = () => {
+        // This would open your chat application
+        console.log('Opening chat application...');
+        // You can replace this with your actual chat opening logic
+        window.open('/chat', '_blank'); // Example
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-x-hidden">
             
@@ -68,10 +83,10 @@ const LandingPage = () => {
                     ? 'bg-slate-900/95 backdrop-blur-xl shadow-2xl border-b border-purple-500/20' 
                     : 'bg-transparent'
                 }`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl  mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex justify-between items-center py-4">
                         {/* Logo */}
-                        <div className="flex items-center space-x-3 group cursor-pointer">
+                        <div className="flex -ml-12 items-center space-x-3 group cursor-pointer">
                             <div className="relative w-10 h-10 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-all duration-300">
                                 <MessageCircle className="w-6 h-6 text-white" />
                                 <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 rounded-xl blur opacity-75 group-hover:opacity-100 transition-opacity"></div>
@@ -106,18 +121,55 @@ const LandingPage = () => {
                             </button>
                         </nav>
 
-                        {/* Auth Buttons */}
+                        {/* Auth Buttons - Desktop */}
                         <div className="hidden md:flex items-center space-x-4">
-                            <button className="px-6 py-2 text-slate-300 hover:text-white font-medium transition-all duration-300 relative overflow-hidden group">
-                                <span className="relative z-10">Sign In</span>
-                            </button>
-                            <button className="px-8 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden group">
-                                <span className="relative z-10 flex items-center space-x-2">
-                                    <span>Get Started</span>
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </span>
-                                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            </button>
+                            {isSignedIn ? (
+                                <div className="flex items-center space-x-4">
+                                    <span className="text-slate-300 font-medium">
+                                        Welcome, {user?.firstName || 'User'}!
+                                    </span>
+                                    <div className="scale-110 ">
+                                        <UserButton 
+                                            appearance={{
+                                                elements: {
+                                                    avatarBox: "w-10 h-10 rounded-full border-2 border-purple-500/50 hover:border-purple-400 transition-colors"
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <Link to="/chat">
+
+                                    <button 
+                                        
+                                        className="px-8 -mr-24 ml-12 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden group"
+                                    >
+                                        <span className="relative z-10 flex items-center space-x-2">
+                                            <MessageCircle className="w-4 h-4" />
+                                            <span>Open Chat</span>
+                                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                        </span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    </button>
+                                </Link>
+                                </div>
+                            ) : (
+                                <>
+                                    <SignInButton mode="modal">
+                                        <button className="px-6 py-2 text-slate-300 hover:text-white font-medium transition-all duration-300 relative overflow-hidden group">
+                                            <span className="relative z-10">Sign In</span>
+                                        </button>
+                                    </SignInButton>
+                                    <SignUpButton mode="modal">
+                                        <button className="px-8 py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden group">
+                                            <span className="relative z-10 flex items-center space-x-2">
+                                                <span>Get Started</span>
+                                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                            </span>
+                                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        </button>
+                                    </SignUpButton>
+                                </>
+                            )}
                         </div>
 
                         {/* Mobile menu button */}
@@ -152,12 +204,42 @@ const LandingPage = () => {
                                     Contact
                                 </button>
                                 <div className="pt-4 border-t border-slate-700/50 space-y-3">
-                                    <button className="w-full text-left py-2 text-slate-300 hover:text-white transition-colors">
-                                        Sign In
-                                    </button>
-                                    <button className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-semibold transition-all duration-300">
-                                        Get Started
-                                    </button>
+                                    {isSignedIn ? (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center space-x-3 py-2">
+                                                <UserButton 
+                                                    appearance={{
+                                                        elements: {
+                                                            avatarBox: "w-8 h-8 rounded-full border-2 border-purple-500/50"
+                                                        }
+                                                    }}
+                                                />
+                                                <span className="text-slate-300">
+                                                    {user?.firstName || 'User'}
+                                                </span>
+                                            </div>
+                                            <button 
+                                                onClick={openChat}
+                                                className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-semibold transition-all duration-300 flex items-center justify-center space-x-2"
+                                            >
+                                                <MessageCircle className="w-4 h-4" />
+                                                <span>Open Chat</span>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <SignInButton mode="modal">
+                                                <button className="w-full text-left py-2 text-slate-300 hover:text-white transition-colors">
+                                                    Sign In
+                                                </button>
+                                            </SignInButton>
+                                            <SignUpButton mode="modal">
+                                                <button className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-semibold transition-all duration-300">
+                                                    Get Started
+                                                </button>
+                                            </SignUpButton>
+                                        </>
+                                    )}
                                 </div>
                             </nav>
                         </div>
@@ -194,13 +276,31 @@ const LandingPage = () => {
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-4">
-                                <button className="group px-10 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden">
-                                    <span className="relative z-10 flex items-center justify-center space-x-2">
-                                        <span>Start Chatting</span>
-                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                    </span>
-                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                </button>
+                                {isSignedIn ? (
+                                    <Link to="/chat">
+                                    <button 
+                                        onClick={openChat}
+                                        className="group px-10 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden"
+                                    >
+                                        <span className="relative z-10 flex items-center justify-center space-x-2">
+                                            <MessageCircle className="w-5 h-5" />
+                                            <span>Start Chatting</span>
+                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    </button>
+                                    </Link>
+                                ) : (
+                                    <SignUpButton mode="modal">
+                                        <button className="group px-10 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden">
+                                            <span className="relative z-10 flex items-center justify-center space-x-2">
+                                                <span>Start Chatting</span>
+                                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                            </span>
+                                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        </button>
+                                    </SignUpButton>
+                                )}
                                 
                                 <button className="group px-10 py-4 border-2 border-slate-600 text-slate-300 rounded-full font-bold text-lg hover:border-purple-500 hover:text-white transition-all duration-300 relative overflow-hidden">
                                     <span className="relative z-10">Watch Demo</span>
@@ -431,13 +531,29 @@ const LandingPage = () => {
                         </p>
                         
                         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                            <button className="group px-12 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden">
-                                <span className="relative z-10 flex items-center space-x-2">
-                                    <span>Start Free Today</span>
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                                </span>
-                                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            </button>
+                            {isSignedIn ? (
+                                <button 
+                                    onClick={openChat}
+                                    className="group px-12 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden"
+                                >
+                                    <span className="relative z-10 flex items-center space-x-2">
+                                        <MessageCircle className="w-5 h-5" />
+                                        <span>Start Chatting Now</span>
+                                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    </span>
+                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </button>
+                            ) : (
+                                <SignUpButton mode="modal">
+                                    <button className="group px-12 py-4 bg-gradient-to-r from-purple-500 via-pink-500 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 relative overflow-hidden">
+                                        <span className="relative z-10 flex items-center space-x-2">
+                                            <span>Start Free Today</span>
+                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-pink-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    </button>
+                                </SignUpButton>
+                            )}
                             
                             <div className="text-slate-400 text-sm">
                                 ✓ No credit card required  ✓ Setup in 30 seconds
