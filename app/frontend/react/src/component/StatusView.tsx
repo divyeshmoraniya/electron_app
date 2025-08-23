@@ -26,7 +26,7 @@ const StatusView: React.FC = () => {
 
   return (
     <div>
-      <h1 className="h-12 w-36">{isOnline ? "🟢 You are Online" : "🔴 You are Offline"}</h1>
+      <h1 className="h-2 w-7">{isOnline ? "🟢 You are Online" : "🔴 You are Offline"}</h1>
     </div>
   );
 };
