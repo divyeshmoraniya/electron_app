@@ -1,6 +1,8 @@
 import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +15,7 @@ const createWindow = () => {
     height: 600,
     icon: path.join(__dirname, "..", "react", "src", "assets", "chat.ico"),
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"), // use preload
+      nodeIntegration : true
     },
   });
 
@@ -38,6 +40,11 @@ const createWindow = () => {
     }
   }, INTERVAL_DELAY);
 };
+
+const fileName = 'recently-used.md'
+fs.writeFile(fileName, 'Lorem Ipsum', () => {
+  app.addRecentDocument(path.join(__dirname, fileName))
+})
 
 // 🔹 listen for online status from renderer
 ipcMain.on("online-status-changed", (event, status) => {
