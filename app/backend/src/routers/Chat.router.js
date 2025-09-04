@@ -5,4 +5,4 @@ import { getChat } from "../controllers/Chat.controllers.js";
 export const chatRouter = Router();
 
 chatRouter.route("/addchat").post(AddChat);
-chatRouter.route("/getchat").get(getChat);
+chatRouter.route("/getchat/:senderEmail").get(getChat);
