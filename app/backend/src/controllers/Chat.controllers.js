@@ -4,8 +4,9 @@ import { User } from "../models/user.models.js";
 export const AddChat = async (req, res) => {
     try {
         const { SenderEmail, ReceiverEmail } = req.body;
+        console.log(req.body)
         if (!SenderEmail || !ReceiverEmail) {
-            res.status(402).json({ msg: "all detail required" });
+            return res.status(402).json({ msg: "all detail required" });
         }
 
         const senderUser = await User.findOne({ Email: SenderEmail });
@@ -20,7 +21,7 @@ export const AddChat = async (req, res) => {
 
         const receiverchecker = await User.findOne({ Email: ReceiverEmail })
         if (!receiverchecker) {
-            res.status(403).json({ msg: "user not found" })
+            return res.status(403).json({ msg: "user not found" })
         }
 
         let chat = await CHAT.findOne({
@@ -47,7 +48,8 @@ export const AddChat = async (req, res) => {
 
 export const getChat = async (req, res) => {
     try {
-        const { senderEmail } = req.body;
+        const { senderEmail } = req.params;
+        console.log(senderEmail)
         if (!senderEmail) {
             res.status(402).json({ msg: "sender not find" })
         };
@@ -55,7 +57,7 @@ export const getChat = async (req, res) => {
         if (!senderId) {
             res.status(402).json({ msg: "sender is not found" })
         }
-        const chats = await CHAT.findOne({
+        const chats = await CHAT.find({
             $or: [{ sender: senderId._id }, { receiver: senderId._id }]
         }).populate("sender", "userName Email profileImg").populate("receiver", "userName Email profileImg").sort({ updatedAt: -1 });
         if (!chats) {
