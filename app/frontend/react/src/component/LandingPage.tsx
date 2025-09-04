@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MessageCircle, Users, Shield, Zap, Menu, X, ArrowRight, Star, Globe, Lock, Smartphone } from 'lucide-react';
 import { useAuth, UserButton, SignInButton, SignUpButton ,useUser } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const LandingPage = () => {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -11,6 +12,23 @@ const LandingPage = () => {
     const {user} = useUser();
 
     console.log(user);
+
+    useEffect(() => {
+
+        try {
+            const responce = axios.post("http://localhost:3000/api/user/me",{
+                userName : user?.fullName,
+                Email : user?.primaryEmailAddress?.emailAddress,
+                clerkId : user?.id,
+                profileImg : user?.imageUrl
+            })
+
+            console.log(responce.data);
+        } catch (error) {
+            console.log(error)
+        }
+
+    },[isSignedIn])
 
 
 
