@@ -17,7 +17,7 @@ import axios from 'axios';
     const { user } = useUser();
 
     const senderEmail = user?.primaryEmailAddress?.emailAddress;
-    console.log(senderEmail)
+    // console.log(senderEmail)
 
 useEffect(() => {
   const fetchChats = async () => {
@@ -33,23 +33,20 @@ useEffect(() => {
   fetchChats();
 }, [senderEmail]);
 
-useEffect(() => {
-    const addchat = async() => {
+    const addchat = async () => {
         try {
-            const res = axios.post("http://localhost:3000/api/chat/addchat",{
+            const res = await axios.post("http://localhost:3000/api/chat/add",{
                 SenderEmail :senderEmail,
                 ReceiverEmail: newChatEmail,
             })
-            console.log(res.data)
+            console.log(res?.data)
         } catch (error) {
             console.log(error)
         }
     }
-    addchat();
-} ,[newChatEmail])
 
 
-console.log("mychat" ,chat)
+// console.log("mychat" ,chat)
 
     const themes = {
         default: {
@@ -961,10 +958,10 @@ console.log("mychat" ,chat)
         }
     };
 
-    const handleAddChat = () => {
+    const handleAddChat = async () => {
         if (newChatEmail.trim()) {
             console.log('Adding new chat for:', newChatEmail);
-            // Add your API call here
+            await addchat()
             setNewChatEmail('');
             setShowAddChat(false);
         }
