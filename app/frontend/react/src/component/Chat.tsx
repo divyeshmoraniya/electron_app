@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Phone, Video, User, MoreVertical, Paperclip, Smile, Mic, Search, Settings, Palette, Plus } from 'lucide-react';
-import { UserButton, useAuth,useUser } from '@clerk/clerk-react';
+import { UserButton, useAuth, useUser } from '@clerk/clerk-react';
 import { Users } from 'lucide-react';
 import axios from 'axios';
 
- const Chat = () => {
+const Chat = () => {
     const [isDark, setIsDark] = useState(false);
     const [currentTheme, setCurrentTheme] = useState('default');
     const [message, setMessage] = useState('');
-    const [chat,setChats] = useState([])
+    const [chat, setChats] = useState([])
     const [showThemeSelector, setShowThemeSelector] = useState(false);
     const [showAddChat, setShowAddChat] = useState(false);
     const [newChatEmail, setNewChatEmail] = useState('');
@@ -19,24 +19,25 @@ import axios from 'axios';
     const senderEmail = user?.primaryEmailAddress?.emailAddress;
     // console.log(senderEmail)
 
-useEffect(() => {
-  const fetchChats = async () => {
-    try {
-      const res = await axios.get(`http://localhost:3000/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
-      console.log(res.data);
-      setChats(res.data.chats);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
-  fetchChats();
-}, [senderEmail]);
+    useEffect(() => {
+        const fetchChats = async () => {
+            try {
+                const res = await axios.get(`http://localhost:3000/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
+                console.log(res.data);
+                setChats(res.data.chats);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        fetchChats();
+    }, [senderEmail]);
 
     const addchat = async () => {
         try {
-            const res = await axios.post("http://localhost:3000/api/chat/add",{
-                SenderEmail :senderEmail,
+            const res = await axios.post("http://localhost:3000/api/chat/add", {
+                SenderEmail: senderEmail,
                 ReceiverEmail: newChatEmail,
             })
             console.log(res?.data)
@@ -46,7 +47,7 @@ useEffect(() => {
     }
 
 
-// console.log("mychat" ,chat)
+    // console.log("mychat" ,chat)
 
     const themes = {
         default: {
@@ -972,11 +973,18 @@ useEffect(() => {
         return (
             <div className="flex gap-1 ">
                 <div className={`w-3 h-3 rounded-full ${theme.primary}`}></div>
-        <div className={`w-3 h-3 rounded-full ${theme.messageOwn}`}></div>
-        <div className={`w-3 h-3 rounded-full ${theme.secondary}`}></div>
+                <div className={`w-3 h-3 rounded-full ${theme.messageOwn}`}></div>
+                <div className={`w-3 h-3 rounded-full ${theme.secondary}`}></div>
             </div>
         );
     };
+
+    
+    const sender = activeContact?.sender;
+    const receiver = activeContact?.receiver;
+
+    const senderemail = typeof sender === "object" ? sender?.Email : "";
+    const receiveremail = typeof receiver === "object" ? receiver?.Email : "";
 
     return (
         <div className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}>
@@ -1081,8 +1089,8 @@ useEffect(() => {
                                         setShowThemeSelector(false);
                                     }}
                                     className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${currentTheme === key
-                                            ? `${currentColors.primary} text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace('bg-', 'ring-')}`
-                                            : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
+                                        ? `${currentColors.primary} text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace('bg-', 'ring-')}`
+                                        : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
                                         }`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
@@ -1134,60 +1142,66 @@ useEffect(() => {
                 </div>
 
                 {/* Contacts List */}
-               <div className="flex-1 overflow-y-auto">
-  {chat.map((contact) => (
-    <div
-      key={contact._id}
-      onClick={() => setActiveContact(contact)}
-      className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${
-        activeContact?._id === contact._id
-          ? currentColors.secondary +
-            ' shadow-md border-l-4 ' +
-            currentColors.primary.replace('bg-', 'border-')
-          : currentColors.primaryHover
-      } ${currentColors.border} border-b last:border-b-0`}
-    >
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <img
-            src={contact.receiver.profileImg}
-            alt={contact.receiver.userName}
-            className="w-12 h-12 rounded-full shadow-md object-cover"
-          />
-          {/* Optional online indicator */}
-          {contact.online && (
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
-          )}
-        </div>
+                <div className="flex-1 overflow-y-auto">
+                    {chat.map((contact) => {
+                        // Determine "other person"
+                        const otherUser =
+                            contact.sender.Email === senderEmail
+                                ? contact.receiver
+                                : contact.sender;
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <h3 className="font-medium truncate">
-              {contact.receiver.userName}
-            </h3>
-            <span className={`text-xs ${currentColors.textSecondary}`}>
-              {new Date(contact.updatedAt).toLocaleTimeString()}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <p
-              className={`text-sm ${currentColors.textSecondary} truncate`}
-            >
-              Last message placeholder
-            </p>
-            {contact.unread > 0 && (
-              <span
-                className={`ml-2 px-2 py-1 ${currentColors.primary} text-white text-xs rounded-full min-w-[20px] text-center shadow-sm animate-bounce`}
-              >
-                {contact.unread}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  ))}
-</div>
+                        return (
+                            <div
+                                key={contact._id}
+                                onClick={() => setActiveContact(otherUser)}
+                                className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${activeContact?._id === otherUser._id
+                                    ? currentColors.secondary +
+                                    " shadow-md border-l-4 " +
+                                    currentColors.primary.replace("bg-", "border-")
+                                    : currentColors.primaryHover
+                                    } ${currentColors.border} border-b last:border-b-0`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="relative">
+                                        <img
+                                            src={otherUser.profileImg}
+                                            alt={otherUser.userName}
+                                            className="w-12 h-12 rounded-full shadow-md object-cover"
+                                        />
+                                        {/* Optional online indicator */}
+                                        {otherUser.online && (
+                                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="font-medium truncate">{otherUser.userName}</h3>
+                                            <span className={`text-xs ${currentColors.textSecondary}`}>
+                                                {new Date(contact.updatedAt).toLocaleTimeString()}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <p
+                                                className={`text-sm ${currentColors.textSecondary} truncate`}
+                                            >
+                                                Last message placeholder
+                                            </p>
+                                            {contact.unread > 0 && (
+                                                <span
+                                                    className={`ml-2 px-2 py-1 ${currentColors.primary} text-white text-xs rounded-full min-w-[20px] text-center shadow-sm animate-bounce`}
+                                                >
+                                                    {contact.unread}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
 
             </div>
 
@@ -1204,16 +1218,32 @@ useEffect(() => {
                         </button>
                         {activeContact && (
                             <>
+                                {/* ✅ Show the other user, not always receiver */}
                                 <div className="relative">
+
+
                                     <img
-                                        src={activeContact.receiver.profileImg}
-                                        alt={activeContact.receiver.userName}
+                                        src={
+                                            senderemail === senderEmail
+                                                ? receiver?.profileImg
+                                                : sender?.profileImg
+                                        }
+                                        alt={
+                                            senderemail === senderEmail
+                                                ? receiver?.userName
+                                                : sender?.userName
+                                        }
                                         className="w-10 h-10 rounded-full shadow-md object-cover"
                                     />
+
                                     <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
                                 </div>
                                 <div>
-                                    <h2 className="font-semibold">{activeContact.receiver.userName}</h2>
+                                    <h2 className="font-semibold">
+                                        {activeContact.sender.Email === senderEmail
+                                            ? activeContact.receiver.userName
+                                            : activeContact.sender.userName}
+                                    </h2>
                                     <p className={`text-xs ${currentColors.textSecondary} flex items-center gap-1`}>
                                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                                         Online
@@ -1224,7 +1254,9 @@ useEffect(() => {
                         {!activeContact && (
                             <div>
                                 <h2 className="font-semibold">Select a chat</h2>
-                                <p className={`text-xs ${currentColors.textSecondary}`}>Choose a conversation to start messaging</p>
+                                <p className={`text-xs ${currentColors.textSecondary}`}>
+                                    Choose a conversation to start messaging
+                                </p>
                             </div>
                         )}
                     </div>
@@ -1235,22 +1267,24 @@ useEffect(() => {
                         <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}>
                             <Video size={20} />
                         </button>
-                        
-                            <div className="hidden md:flex items-center space-x-4">
-                                {isSignedIn ? (
-                                    <div className="flex items-center space-x-4">
-                                        <div className="scale-110 ">
-                                            <UserButton
-                                                appearance={{
-                                                    elements: {
-                                                        avatarBox: "w-10 h-10 rounded-full border-2 border-purple-500/50 hover:border-purple-400 transition-colors"
-                                                    }
-                                                }}
-                                            />
-                                        </div>
+                        <div className="hidden md:flex items-center space-x-4">
+                            {isSignedIn ? (
+                                <div className="flex items-center space-x-4">
+                                    <div className="scale-110">
+                                        <UserButton
+                                            appearance={{
+                                                elements: {
+                                                    avatarBox:
+                                                        "w-10 h-10 rounded-full border-2 border-purple-500/50 hover:border-purple-400 transition-colors",
+                                                },
+                                            }}
+                                        />
                                     </div>
-                                ) : (<Users />)}  
-                            </div>
+                                </div>
+                            ) : (
+                                <Users />
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -1258,59 +1292,81 @@ useEffect(() => {
                 <div className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}>
                     {/* Background Pattern */}
                     <div className="absolute inset-0 opacity-5 pointer-events-none">
-                        <div className="w-full h-full" style={{
-                            backgroundImage: `radial-gradient(circle at 20% 50%, ${currentColors.primary.replace('bg-', '')} 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${currentColors.accent.replace('text-', '')} 0%, transparent 50%)`,
-                            backgroundSize: '100px 100px'
-                        }}></div>
+                        <div
+                            className="w-full h-full"
+                            style={{
+                                backgroundImage: `radial-gradient(circle at 20% 50%, ${currentColors.primary.replace(
+                                    "bg-",
+                                    ""
+                                )} 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${currentColors.accent.replace(
+                                    "text-",
+                                    ""
+                                )} 0%, transparent 50%)`,
+                                backgroundSize: "100px 100px",
+                            }}
+                        ></div>
                     </div>
 
                     <div className="space-y-4 relative z-10">
-                        {messages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`flex ${msg.sender === 'own' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
-                            >
+                        {messages.map((msg) => {
+                            const isOwnMessage = msg.sender.Email === senderEmail;
+                            return (
                                 <div
-                                    className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] ${msg.sender === 'own'
-                                            ? `${currentColors.messageOwn} ml-auto backdrop-blur-sm border ${currentColors.primary.replace('bg-', 'border-').replace('500', '200')}`
-                                            : `${currentColors.messageOther} ${currentColors.border} border backdrop-blur-sm`
-                                        }`}
+                                    key={msg._id}
+                                    className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} animate-fadeIn`}
                                 >
-                                    <p className="text-sm leading-relaxed">{msg.text}</p>
-                                    <div className="flex items-center justify-end gap-1 mt-2">
-                                        <p className={`text-xs ${currentColors.textSecondary}`}>{msg.time}</p>
-                                        {msg.sender === 'own' && (
-                                            <div className="flex">
-                                                <div className={`w-3 h-3 ${currentColors.accent} opacity-60`}>✓</div>
-                                                <div className={`w-3 h-3 ${currentColors.accent} -ml-1`}>✓</div>
-                                            </div>
-                                        )}
+                                    <div
+                                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] ${isOwnMessage
+                                            ? `${currentColors.messageOwn} ml-auto backdrop-blur-sm border ${currentColors.primary.replace(
+                                                "bg-",
+                                                "border-"
+                                            ).replace("500", "200")}`
+                                            : `${currentColors.messageOther} ${currentColors.border} border backdrop-blur-sm`
+                                            }`}
+                                    >
+                                        <p className="text-sm leading-relaxed">{msg.text}</p>
+                                        <div className="flex items-center justify-end gap-1 mt-2">
+                                            <p className={`text-xs ${currentColors.textSecondary}`}>
+                                                {new Date(msg.createdAt).toLocaleTimeString()}
+                                            </p>
+                                            {isOwnMessage && (
+                                                <div className="flex">
+                                                    <div className={`w-3 h-3 ${currentColors.accent} opacity-60`}>✓</div>
+                                                    <div className={`w-3 h-3 ${currentColors.accent} -ml-1`}>✓</div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                         <div ref={messagesEndRef} />
                     </div>
                 </div>
 
                 {/* Message Input */}
-                <div className={`p-4  ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}>
+                <div className={`p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}>
                     <div className="flex items-end gap-3">
-                        <button className={`p-2  rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
+                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
                             <Paperclip size={20} />
                         </button>
-                        <div className={`flex-1 ${currentColors.background}  rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}>
+                        <div
+                            className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}
+                        >
                             <textarea
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
                                 onKeyPress={handleKeyPress}
                                 placeholder="Type a message..."
-                                rows="1"
-                                className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} max-h-32 transition-all duration-200 placeholder-opacity-60`}
-                                style={{ minHeight: '48px' }}
+                                rows={1}
+                                className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
+                                    "bg-",
+                                    "focus:ring-"
+                                )} max-h-32 transition-all duration-200 placeholder-opacity-60`}
+                                style={{ minHeight: "48px" }}
                             />
                         </div>
-                        <button className={`p-2  rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
+                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
                             <Smile size={20} />
                         </button>
                         {message.trim() ? (
@@ -1321,13 +1377,16 @@ useEffect(() => {
                                 <Send size={20} />
                             </button>
                         ) : (
-                            <button className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110  shadow-xl hover:shadow-2xl transform`}>
+                            <button
+                                className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}
+                            >
                                 <Mic size={20} />
                             </button>
                         )}
                     </div>
                 </div>
             </div>
+
 
             <style jsx>{`
         @keyframes fadeIn {
