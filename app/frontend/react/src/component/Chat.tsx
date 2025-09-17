@@ -3,6 +3,8 @@ import { Send, Phone, Video, User, MoreVertical, Paperclip, Smile, Mic, Search, 
 import { UserButton, useAuth, useUser } from '@clerk/clerk-react';
 import { Users } from 'lucide-react';
 import axios from 'axios';
+import { ToastContainer, toast, Bounce } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const Chat = () => {
     const [isDark, setIsDark] = useState(false);
@@ -20,7 +22,7 @@ const Chat = () => {
     // console.log(senderEmail)
 
 
-    useEffect(() => {
+
         const fetchChats = async () => {
             try {
                 const res = await axios.get(`http://localhost:3000/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
@@ -30,8 +32,10 @@ const Chat = () => {
                 console.error(error);
             }
         };
-
-        fetchChats();
+    useEffect(() => {
+        if (senderEmail) {
+            fetchChats();
+        }
     }, [senderEmail]);
 
     const addchat = async () => {
@@ -41,8 +45,14 @@ const Chat = () => {
                 ReceiverEmail: newChatEmail,
             })
             console.log(res?.data)
+            if (res.status === 201) {
+                toast.success("User added to chat");
+                fetchChats();
+            } 
         } catch (error) {
-            console.log(error)
+            console.log(error);
+            toast.error("user not found");
+
         }
     }
 
@@ -979,7 +989,7 @@ const Chat = () => {
         );
     };
 
-    
+
     const sender = activeContact?.sender;
     const receiver = activeContact?.receiver;
 
@@ -992,6 +1002,32 @@ const Chat = () => {
             <div className={`w-full sm:w-80 ${showThemeSelector ? 'hidden sm:flex' : 'flex'} ${currentColors.surface} ${currentColors.border} sm:border-r flex-col`}>
                 {/* Header */}
                 <div className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between`}>
+                   {isDark ? ( 
+                    <ToastContainer
+                        position="top-center"
+                        autoClose={5000}
+                        hideProgressBar={false}
+                        newestOnTop={false}
+                        closeOnClick={false}
+                        rtl={false}
+                        pauseOnFocusLoss
+                        draggable
+                        pauseOnHover
+                        theme="dark"
+                        transition={Bounce}
+                    />) : <ToastContainer
+                        position="top-center"
+                        autoClose={5000}
+                        hideProgressBar={false}
+                        newestOnTop={false}
+                        closeOnClick={false}
+                        rtl={false}
+                        pauseOnFocusLoss
+                        draggable
+                        pauseOnHover
+                        theme="light"
+                        transition={Bounce}
+                    /> }
                     <div className="flex items-center gap-2">
                         <div className="text-2xl">💬</div>
                         <h1 className="text-xl font-semibold">TalkyChats</h1>
@@ -1146,7 +1182,7 @@ const Chat = () => {
                     {chat.map((contact) => {
                         // Determine "other person"
                         const otherUser =
-                            contact.sender.Email === senderEmail
+                            contact.sender?.Email === senderEmail
                                 ? contact.receiver
                                 : contact.sender;
 
