@@ -20,7 +20,7 @@ const createWindow = () => {
   });
 
   win.loadURL("http://localhost:5173"); // dev
-  // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html")); // prod
+  // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html")); // production
 
   Menu.setApplicationMenu(null);
 

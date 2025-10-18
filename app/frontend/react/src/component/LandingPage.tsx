@@ -16,7 +16,7 @@ const LandingPage = () => {
     useEffect(() => {
 
         try {
-            const responce = axios.post("http://localhost:3000/api/user/me",{
+            const responce = axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/user/me`,{
                 userName : user?.fullName,
                 Email : user?.primaryEmailAddress?.emailAddress,
                 clerkId : user?.id,
