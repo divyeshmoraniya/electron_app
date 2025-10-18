@@ -1,939 +1,315 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Phone, Video, User, MoreVertical, Paperclip, Smile, Mic, Search, Settings, Palette, Plus } from 'lucide-react';
+import { Send, Phone, Video, Paperclip, Smile, Mic, Search, Palette, Plus, X, Check, Users as UsersIcon, Image, File } from 'lucide-react';
 import { UserButton, useAuth, useUser } from '@clerk/clerk-react';
-import { Users } from 'lucide-react';
 import axios from 'axios';
 import { ToastContainer, toast, Bounce } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import io from 'socket.io-client';
+import EmojiPicker from 'emoji-picker-react';
+import themes from "./theme.js"
+
+
+// zego import 
+
+import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
+import { ZIM } from "zego-zim-web";
+
 
 const Chat = () => {
     const [isDark, setIsDark] = useState(false);
     const [currentTheme, setCurrentTheme] = useState('default');
     const [message, setMessage] = useState('');
-    const [chat, setChats] = useState([])
+    const [chat, setChats] = useState([]);
     const [showThemeSelector, setShowThemeSelector] = useState(false);
     const [showAddChat, setShowAddChat] = useState(false);
+    const [showCreateGroup, setShowCreateGroup] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [newChatEmail, setNewChatEmail] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [messages, setMessages] = useState([]);
+    const [activeContact, setActiveContact] = useState(null);
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [groupTitle, setGroupTitle] = useState('');
+    const [selectedChatsForGroup, setSelectedChatsForGroup] = useState([]);
+    const [socket, setSocket] = useState(null);
+    const [currentUserMongoId, setCurrentUserMongoId] = useState(null);
+    const [uploadProgress, setUploadProgress] = useState({});
+    const [showCall, setShowCall] = useState(false);  
+    const [callType, setCallType] = useState("video");  
+    const [callRoomID, setCallRoomID] = useState(null); 
+
     const messagesEndRef = useRef(null);
+    const fileInputRef = useRef(null);
     const { isSignedIn } = useAuth();
     const { user } = useUser();
 
     const senderEmail = user?.primaryEmailAddress?.emailAddress;
-    // console.log(senderEmail)
+    const currentColors = themes[currentTheme][isDark ? 'dark' : 'light'];
 
-
-
-        const fetchChats = async () => {
-            try {
-                const res = await axios.get(`http://localhost:3000/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
-                console.log(res.data);
-                setChats(res.data.chats);
-            } catch (error) {
-                console.error(error);
-            }
-        };
     useEffect(() => {
-        if (senderEmail) {
-            fetchChats();
-        }
-    }, [senderEmail]);
+        const newSocket = io(`${import.meta.env.VITE_BACKEND_URL}`);
+        setSocket(newSocket);
+        return () => newSocket.close();
+    }, []);
 
-    const addchat = async () => {
-        try {
-            const res = await axios.post("http://localhost:3000/api/chat/add", {
-                SenderEmail: senderEmail,
-                ReceiverEmail: newChatEmail,
-            })
-            console.log(res?.data)
-            if (res.status === 201) {
-                toast.success("User added to chat");
+    useEffect(() => {
+        if (socket && currentUserMongoId) {
+            socket.emit('addUser', currentUserMongoId);
+        }
+    }, [socket, currentUserMongoId]);
+
+    useEffect(() => {
+        if (socket && currentUserMongoId) {
+            socket.on('getMessage', (data) => {
+                if (activeContact && data.conversationId === activeContact._id) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now(),
+                        text: data.text,
+                        sender: 'other',
+                        senderId: data.senderId,
+                        time: new Date(data.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        emoji: data.emoji,
+                        attachments: data.attachments
+                    }]);
+                }
                 fetchChats();
-            } 
-        } catch (error) {
-            console.log(error);
-            toast.error("user not found");
-
+            });
         }
-    }
+        return () => {
+            if (socket) socket.off('getMessage');
+        };
+    }, [socket, activeContact, currentUserMongoId]);
 
+    const fetchChats = async () => {
+        try {
+            const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
+            const transformedChats = res.data.conversations.map(conv => {
+                const otherMember = conv.members.find(m => m.Email !== senderEmail);
+                const currentMember = conv.members.find(m => m.Email === senderEmail);
 
-    // console.log("mychat" ,chat)
+                if (currentMember && currentMember._id && !currentUserMongoId) {
+                    setCurrentUserMongoId(currentMember._id);
+                }
 
-    const themes = {
-        default: {
-            name: 'WhatsApp Classic',
-            emoji: '💬',
-            light: {
-                primary: 'bg-green-500',
-                primaryHover: 'hover:bg-green-600',
-                secondary: 'bg-gray-100',
-                background: 'bg-white',
-                surface: 'bg-gray-50',
-                text: 'text-gray-900',
-                textSecondary: 'text-gray-600',
-                border: 'border-gray-200',
-                messageOwn: 'bg-green-100',
-                messageOther: 'bg-white',
-                accent: 'text-green-600'
-            },
-            dark: {
-                primary: 'bg-green-600',
-                primaryHover: 'hover:bg-green-700',
-                secondary: 'bg-gray-800',
-                background: 'bg-gray-900',
-                surface: 'bg-gray-800',
-                text: 'text-white',
-                textSecondary: 'text-gray-300',
-                border: 'border-gray-700',
-                messageOwn: 'bg-green-900',
-                messageOther: 'bg-gray-800',
-                accent: 'text-green-400'
-            }
-        },
-        ocean: {
-            name: 'Ocean Blue',
-            emoji: '🌊',
-            light: {
-                primary: 'bg-blue-500',
-                primaryHover: 'hover:bg-blue-600',
-                secondary: 'bg-blue-50',
-                background: 'bg-slate-50',
-                surface: 'bg-blue-50',
-                text: 'text-slate-900',
-                textSecondary: 'text-slate-600',
-                border: 'border-blue-200',
-                messageOwn: 'bg-blue-100',
-                messageOther: 'bg-white',
-                accent: 'text-blue-600'
-            },
-            dark: {
-                primary: 'bg-blue-600',
-                primaryHover: 'hover:bg-blue-700',
-                secondary: 'bg-slate-800',
-                background: 'bg-slate-900',
-                surface: 'bg-slate-800',
-                text: 'text-white',
-                textSecondary: 'text-slate-300',
-                border: 'border-slate-700',
-                messageOwn: 'bg-blue-900',
-                messageOther: 'bg-slate-800',
-                accent: 'text-blue-400'
-            }
-        },
-        sunset: {
-            name: 'Sunset Orange',
-            emoji: '🌅',
-            light: {
-                primary: 'bg-orange-500',
-                primaryHover: 'hover:bg-orange-600',
-                secondary: 'bg-orange-50',
-                background: 'bg-amber-50',
-                surface: 'bg-orange-50',
-                text: 'text-amber-900',
-                textSecondary: 'text-amber-700',
-                border: 'border-orange-200',
-                messageOwn: 'bg-orange-100',
-                messageOther: 'bg-white',
-                accent: 'text-orange-600'
-            },
-            dark: {
-                primary: 'bg-orange-600',
-                primaryHover: 'hover:bg-orange-700',
-                secondary: 'bg-amber-900',
-                background: 'bg-amber-950',
-                surface: 'bg-amber-900',
-                text: 'text-amber-100',
-                textSecondary: 'text-amber-300',
-                border: 'border-amber-800',
-                messageOwn: 'bg-orange-900',
-                messageOther: 'bg-amber-900',
-                accent: 'text-orange-400'
-            }
-        },
-        purple: {
-            name: 'Purple Dream',
-            emoji: '💜',
-            light: {
-                primary: 'bg-purple-500',
-                primaryHover: 'hover:bg-purple-600',
-                secondary: 'bg-purple-50',
-                background: 'bg-violet-50',
-                surface: 'bg-purple-50',
-                text: 'text-violet-900',
-                textSecondary: 'text-violet-700',
-                border: 'border-purple-200',
-                messageOwn: 'bg-purple-100',
-                messageOther: 'bg-white',
-                accent: 'text-purple-600'
-            },
-            dark: {
-                primary: 'bg-purple-600',
-                primaryHover: 'hover:bg-purple-700',
-                secondary: 'bg-violet-900',
-                background: 'bg-violet-950',
-                surface: 'bg-violet-900',
-                text: 'text-violet-100',
-                textSecondary: 'text-violet-300',
-                border: 'border-violet-800',
-                messageOwn: 'bg-purple-900',
-                messageOther: 'bg-violet-900',
-                accent: 'text-purple-400'
-            }
-        },
-        crimson: {
-            name: 'Crimson Red',
-            emoji: '❤️',
-            light: {
-                primary: 'bg-red-500',
-                primaryHover: 'hover:bg-red-600',
-                secondary: 'bg-red-50',
-                background: 'bg-rose-50',
-                surface: 'bg-red-50',
-                text: 'text-rose-900',
-                textSecondary: 'text-rose-700',
-                border: 'border-red-200',
-                messageOwn: 'bg-red-100',
-                messageOther: 'bg-white',
-                accent: 'text-red-600'
-            },
-            dark: {
-                primary: 'bg-red-600',
-                primaryHover: 'hover:bg-red-700',
-                secondary: 'bg-rose-900',
-                background: 'bg-rose-950',
-                surface: 'bg-rose-900',
-                text: 'text-red-100',
-                textSecondary: 'text-red-300',
-                border: 'border-rose-800',
-                messageOwn: 'bg-red-900',
-                messageOther: 'bg-rose-900',
-                accent: 'text-red-400'
-            }
-        },
-        emerald: {
-            name: 'Emerald Forest',
-            emoji: '🌲',
-            light: {
-                primary: 'bg-emerald-500',
-                primaryHover: 'hover:bg-emerald-600',
-                secondary: 'bg-emerald-50',
-                background: 'bg-green-50',
-                surface: 'bg-emerald-50',
-                text: 'text-green-900',
-                textSecondary: 'text-green-700',
-                border: 'border-emerald-200',
-                messageOwn: 'bg-emerald-100',
-                messageOther: 'bg-white',
-                accent: 'text-emerald-600'
-            },
-            dark: {
-                primary: 'bg-emerald-600',
-                primaryHover: 'hover:bg-emerald-700',
-                secondary: 'bg-green-900',
-                background: 'bg-green-950',
-                surface: 'bg-emerald-900',
-                text: 'text-green-100',
-                textSecondary: 'text-green-300',
-                border: 'border-green-800',
-                messageOwn: 'bg-emerald-900',
-                messageOther: 'bg-green-900',
-                accent: 'text-emerald-400'
-            }
-        },
-        teal: {
-            name: 'Teal Waves',
-            emoji: '🌊',
-            light: {
-                primary: 'bg-teal-500',
-                primaryHover: 'hover:bg-teal-600',
-                secondary: 'bg-teal-50',
-                background: 'bg-cyan-50',
-                surface: 'bg-teal-50',
-                text: 'text-cyan-900',
-                textSecondary: 'text-cyan-700',
-                border: 'border-teal-200',
-                messageOwn: 'bg-teal-100',
-                messageOther: 'bg-white',
-                accent: 'text-teal-600'
-            },
-            dark: {
-                primary: 'bg-teal-600',
-                primaryHover: 'hover:bg-teal-700',
-                secondary: 'bg-cyan-900',
-                background: 'bg-cyan-950',
-                surface: 'bg-cyan-900',
-                text: 'text-cyan-100',
-                textSecondary: 'text-cyan-300',
-                border: 'border-cyan-800',
-                messageOwn: 'bg-teal-900',
-                messageOther: 'bg-cyan-900',
-                accent: 'text-teal-400'
-            }
-        },
-        indigo: {
-            name: 'Indigo Night',
-            emoji: '🌙',
-            light: {
-                primary: 'bg-indigo-500',
-                primaryHover: 'hover:bg-indigo-600',
-                secondary: 'bg-indigo-50',
-                background: 'bg-blue-50',
-                surface: 'bg-indigo-50',
-                text: 'text-blue-900',
-                textSecondary: 'text-blue-700',
-                border: 'border-indigo-200',
-                messageOwn: 'bg-indigo-100',
-                messageOther: 'bg-white',
-                accent: 'text-indigo-600'
-            },
-            dark: {
-                primary: 'bg-indigo-600',
-                primaryHover: 'hover:bg-indigo-700',
-                secondary: 'bg-blue-900',
-                background: 'bg-blue-950',
-                surface: 'bg-blue-900',
-                text: 'text-blue-100',
-                textSecondary: 'text-blue-300',
-                border: 'border-blue-800',
-                messageOwn: 'bg-indigo-900',
-                messageOther: 'bg-blue-900',
-                accent: 'text-indigo-400'
-            }
-        },
-        pink: {
-            name: 'Bubblegum Pink',
-            emoji: '🎀',
-            light: {
-                primary: 'bg-pink-500',
-                primaryHover: 'hover:bg-pink-600',
-                secondary: 'bg-pink-50',
-                background: 'bg-rose-50',
-                surface: 'bg-pink-50',
-                text: 'text-rose-900',
-                textSecondary: 'text-rose-700',
-                border: 'border-pink-200',
-                messageOwn: 'bg-pink-100',
-                messageOther: 'bg-white',
-                accent: 'text-pink-600'
-            },
-            dark: {
-                primary: 'bg-pink-600',
-                primaryHover: 'hover:bg-pink-700',
-                secondary: 'bg-rose-900',
-                background: 'bg-rose-950',
-                surface: 'bg-rose-900',
-                text: 'text-rose-100',
-                textSecondary: 'text-rose-300',
-                border: 'border-rose-800',
-                messageOwn: 'bg-pink-900',
-                messageOther: 'bg-rose-900',
-                accent: 'text-pink-400'
-            }
-        },
-        yellow: {
-            name: 'Sunny Yellow',
-            emoji: '☀️',
-            light: {
-                primary: 'bg-yellow-500',
-                primaryHover: 'hover:bg-yellow-600',
-                secondary: 'bg-yellow-50',
-                background: 'bg-amber-50',
-                surface: 'bg-yellow-50',
-                text: 'text-amber-900',
-                textSecondary: 'text-amber-700',
-                border: 'border-yellow-200',
-                messageOwn: 'bg-yellow-100',
-                messageOther: 'bg-white',
-                accent: 'text-yellow-600'
-            },
-            dark: {
-                primary: 'bg-yellow-600',
-                primaryHover: 'hover:bg-yellow-700',
-                secondary: 'bg-amber-900',
-                background: 'bg-amber-950',
-                surface: 'bg-amber-900',
-                text: 'text-amber-100',
-                textSecondary: 'text-amber-300',
-                border: 'border-amber-800',
-                messageOwn: 'bg-yellow-900',
-                messageOther: 'bg-amber-900',
-                accent: 'text-yellow-400'
-            }
-        },
-        lime: {
-            name: 'Lime Green',
-            emoji: '🍃',
-            light: {
-                primary: 'bg-lime-500',
-                primaryHover: 'hover:bg-lime-600',
-                secondary: 'bg-lime-50',
-                background: 'bg-green-50',
-                surface: 'bg-lime-50',
-                text: 'text-green-900',
-                textSecondary: 'text-green-700',
-                border: 'border-lime-200',
-                messageOwn: 'bg-lime-100',
-                messageOther: 'bg-white',
-                accent: 'text-lime-600'
-            },
-            dark: {
-                primary: 'bg-lime-600',
-                primaryHover: 'hover:bg-lime-700',
-                secondary: 'bg-green-900',
-                background: 'bg-green-950',
-                surface: 'bg-green-900',
-                text: 'text-green-100',
-                textSecondary: 'text-green-300',
-                border: 'border-green-800',
-                messageOwn: 'bg-lime-900',
-                messageOther: 'bg-green-900',
-                accent: 'text-lime-400'
-            }
-        },
-        cyan: {
-            name: 'Electric Cyan',
-            emoji: '⚡',
-            light: {
-                primary: 'bg-cyan-500',
-                primaryHover: 'hover:bg-cyan-600',
-                secondary: 'bg-cyan-50',
-                background: 'bg-blue-50',
-                surface: 'bg-cyan-50',
-                text: 'text-blue-900',
-                textSecondary: 'text-blue-700',
-                border: 'border-cyan-200',
-                messageOwn: 'bg-cyan-100',
-                messageOther: 'bg-white',
-                accent: 'text-cyan-600'
-            },
-            dark: {
-                primary: 'bg-cyan-600',
-                primaryHover: 'hover:bg-cyan-700',
-                secondary: 'bg-blue-900',
-                background: 'bg-blue-950',
-                surface: 'bg-blue-900',
-                text: 'text-blue-100',
-                textSecondary: 'text-blue-300',
-                border: 'border-blue-800',
-                messageOwn: 'bg-cyan-900',
-                messageOther: 'bg-blue-900',
-                accent: 'text-cyan-400'
-            }
-        },
-        rose: {
-            name: 'Rose Gold',
-            emoji: '🌹',
-            light: {
-                primary: 'bg-rose-500',
-                primaryHover: 'hover:bg-rose-600',
-                secondary: 'bg-rose-50',
-                background: 'bg-pink-50',
-                surface: 'bg-rose-50',
-                text: 'text-pink-900',
-                textSecondary: 'text-pink-700',
-                border: 'border-rose-200',
-                messageOwn: 'bg-rose-100',
-                messageOther: 'bg-white',
-                accent: 'text-rose-600'
-            },
-            dark: {
-                primary: 'bg-rose-600',
-                primaryHover: 'hover:bg-rose-700',
-                secondary: 'bg-pink-900',
-                background: 'bg-pink-950',
-                surface: 'bg-pink-900',
-                text: 'text-pink-100',
-                textSecondary: 'text-pink-300',
-                border: 'border-pink-800',
-                messageOwn: 'bg-rose-900',
-                messageOther: 'bg-pink-900',
-                accent: 'text-rose-400'
-            }
-        },
-        violet: {
-            name: 'Deep Violet',
-            emoji: '🔮',
-            light: {
-                primary: 'bg-violet-500',
-                primaryHover: 'hover:bg-violet-600',
-                secondary: 'bg-violet-50',
-                background: 'bg-purple-50',
-                surface: 'bg-violet-50',
-                text: 'text-purple-900',
-                textSecondary: 'text-purple-700',
-                border: 'border-violet-200',
-                messageOwn: 'bg-violet-100',
-                messageOther: 'bg-white',
-                accent: 'text-violet-600'
-            },
-            dark: {
-                primary: 'bg-violet-600',
-                primaryHover: 'hover:bg-violet-700',
-                secondary: 'bg-purple-900',
-                background: 'bg-violet-950',
-                surface: 'bg-purple-900',
-                text: 'text-violet-100',
-                textSecondary: 'text-violet-300',
-                border: 'border-violet-800',
-                messageOwn: 'bg-violet-900',
-                messageOther: 'bg-purple-900',
-                accent: 'text-violet-400'
-            }
-        },
-        fuchsia: {
-            name: 'Fuchsia Glow',
-            emoji: '✨',
-            light: {
-                primary: 'bg-fuchsia-500',
-                primaryHover: 'hover:bg-fuchsia-600',
-                secondary: 'bg-fuchsia-50',
-                background: 'bg-pink-50',
-                surface: 'bg-fuchsia-50',
-                text: 'text-pink-900',
-                textSecondary: 'text-pink-700',
-                border: 'border-fuchsia-200',
-                messageOwn: 'bg-fuchsia-100',
-                messageOther: 'bg-white',
-                accent: 'text-fuchsia-600'
-            },
-            dark: {
-                primary: 'bg-fuchsia-600',
-                primaryHover: 'hover:bg-fuchsia-700',
-                secondary: 'bg-pink-900',
-                background: 'bg-pink-950',
-                surface: 'bg-pink-900',
-                text: 'text-pink-100',
-                textSecondary: 'text-pink-300',
-                border: 'border-pink-800',
-                messageOwn: 'bg-fuchsia-900',
-                messageOther: 'bg-pink-900',
-                accent: 'text-fuchsia-400'
-            }
-        },
-        sky: {
-            name: 'Sky Blue',
-            emoji: '☁️',
-            light: {
-                primary: 'bg-sky-500',
-                primaryHover: 'hover:bg-sky-600',
-                secondary: 'bg-sky-50',
-                background: 'bg-blue-50',
-                surface: 'bg-sky-50',
-                text: 'text-blue-900',
-                textSecondary: 'text-blue-700',
-                border: 'border-sky-200',
-                messageOwn: 'bg-sky-100',
-                messageOther: 'bg-white',
-                accent: 'text-sky-600'
-            },
-            dark: {
-                primary: 'bg-sky-600',
-                primaryHover: 'hover:bg-sky-700',
-                secondary: 'bg-blue-900',
-                background: 'bg-blue-950',
-                surface: 'bg-blue-900',
-                text: 'text-blue-100',
-                textSecondary: 'text-blue-300',
-                border: 'border-blue-800',
-                messageOwn: 'bg-sky-900',
-                messageOther: 'bg-blue-900',
-                accent: 'text-sky-400'
-            }
-        },
-        amber: {
-            name: 'Golden Amber',
-            emoji: '🍯',
-            light: {
-                primary: 'bg-amber-500',
-                primaryHover: 'hover:bg-amber-600',
-                secondary: 'bg-amber-50',
-                background: 'bg-yellow-50',
-                surface: 'bg-amber-50',
-                text: 'text-yellow-900',
-                textSecondary: 'text-yellow-700',
-                border: 'border-amber-200',
-                messageOwn: 'bg-amber-100',
-                messageOther: 'bg-white',
-                accent: 'text-amber-600'
-            },
-            dark: {
-                primary: 'bg-amber-600',
-                primaryHover: 'hover:bg-amber-700',
-                secondary: 'bg-yellow-900',
-                background: 'bg-yellow-950',
-                surface: 'bg-yellow-900',
-                text: 'text-yellow-100',
-                textSecondary: 'text-yellow-300',
-                border: 'border-yellow-800',
-                messageOwn: 'bg-amber-900',
-                messageOther: 'bg-yellow-900',
-                accent: 'text-amber-400'
-            }
-        },
-        stone: {
-            name: 'Stone Gray',
-            emoji: '🪨',
-            light: {
-                primary: 'bg-stone-500',
-                primaryHover: 'hover:bg-stone-600',
-                secondary: 'bg-stone-100',
-                background: 'bg-stone-50',
-                surface: 'bg-stone-100',
-                text: 'text-stone-900',
-                textSecondary: 'text-stone-600',
-                border: 'border-stone-200',
-                messageOwn: 'bg-stone-200',
-                messageOther: 'bg-white',
-                accent: 'text-stone-600'
-            },
-            dark: {
-                primary: 'bg-stone-600',
-                primaryHover: 'hover:bg-stone-700',
-                secondary: 'bg-stone-800',
-                background: 'bg-stone-900',
-                surface: 'bg-stone-800',
-                text: 'text-stone-100',
-                textSecondary: 'text-stone-300',
-                border: 'border-stone-700',
-                messageOwn: 'bg-stone-700',
-                messageOther: 'bg-stone-800',
-                accent: 'text-stone-400'
-            }
-        },
-        slate: {
-            name: 'Slate Storm',
-            emoji: '⛈️',
-            light: {
-                primary: 'bg-slate-500',
-                primaryHover: 'hover:bg-slate-600',
-                secondary: 'bg-slate-100',
-                background: 'bg-slate-50',
-                surface: 'bg-slate-100',
-                text: 'text-slate-900',
-                textSecondary: 'text-slate-600',
-                border: 'border-slate-200',
-                messageOwn: 'bg-slate-200',
-                messageOther: 'bg-white',
-                accent: 'text-slate-600'
-            },
-            dark: {
-                primary: 'bg-slate-600',
-                primaryHover: 'hover:bg-slate-700',
-                secondary: 'bg-slate-800',
-                background: 'bg-slate-900',
-                surface: 'bg-slate-800',
-                text: 'text-slate-100',
-                textSecondary: 'text-slate-300',
-                border: 'border-slate-700',
-                messageOwn: 'bg-slate-700',
-                messageOther: 'bg-slate-800',
-                accent: 'text-slate-400'
-            }
-        },
-        zinc: {
-            name: 'Zinc Modern',
-            emoji: '🔩',
-            light: {
-                primary: 'bg-zinc-500',
-                primaryHover: 'hover:bg-zinc-600',
-                secondary: 'bg-zinc-100',
-                background: 'bg-zinc-50',
-                surface: 'bg-zinc-100',
-                text: 'text-zinc-900',
-                textSecondary: 'text-zinc-600',
-                border: 'border-zinc-200',
-                messageOwn: 'bg-zinc-200',
-                messageOther: 'bg-white',
-                accent: 'text-zinc-600'
-            },
-            dark: {
-                primary: 'bg-zinc-600',
-                primaryHover: 'hover:bg-zinc-700',
-                secondary: 'bg-zinc-800',
-                background: 'bg-zinc-900',
-                surface: 'bg-zinc-800',
-                text: 'text-zinc-100',
-                textSecondary: 'text-zinc-300',
-                border: 'border-zinc-700',
-                messageOwn: 'bg-zinc-700',
-                messageOther: 'bg-zinc-800',
-                accent: 'text-zinc-400'
-            }
-        },
-        neutral: {
-            name: 'Neutral Balance',
-            emoji: '⚖️',
-            light: {
-                primary: 'bg-neutral-500',
-                primaryHover: 'hover:bg-neutral-600',
-                secondary: 'bg-neutral-100',
-                background: 'bg-neutral-50',
-                surface: 'bg-neutral-100',
-                text: 'text-neutral-900',
-                textSecondary: 'text-neutral-600',
-                border: 'border-neutral-200',
-                messageOwn: 'bg-neutral-200',
-                messageOther: 'bg-white',
-                accent: 'text-neutral-600'
-            },
-            dark: {
-                primary: 'bg-neutral-600',
-                primaryHover: 'hover:bg-neutral-700',
-                secondary: 'bg-neutral-800',
-                background: 'bg-neutral-900',
-                surface: 'bg-neutral-800',
-                text: 'text-neutral-100',
-                textSecondary: 'text-neutral-300',
-                border: 'border-neutral-700',
-                messageOwn: 'bg-neutral-700',
-                messageOther: 'bg-neutral-800',
-                accent: 'text-neutral-400'
-            }
-        },
-        neonGreen: {
-            name: 'Neon Green',
-            emoji: '🟢',
-            light: {
-                primary: 'bg-green-400',
-                primaryHover: 'hover:bg-green-500',
-                secondary: 'bg-green-50',
-                background: 'bg-lime-50',
-                surface: 'bg-green-50',
-                text: 'text-green-900',
-                textSecondary: 'text-green-700',
-                border: 'border-green-200',
-                messageOwn: 'bg-green-200',
-                messageOther: 'bg-white',
-                accent: 'text-green-500'
-            },
-            dark: {
-                primary: 'bg-green-500',
-                primaryHover: 'hover:bg-green-600',
-                secondary: 'bg-green-900',
-                background: 'bg-green-950',
-                surface: 'bg-green-900',
-                text: 'text-green-100',
-                textSecondary: 'text-green-300',
-                border: 'border-green-800',
-                messageOwn: 'bg-green-800',
-                messageOther: 'bg-green-900',
-                accent: 'text-green-400'
-            }
-        },
-        deepBlue: {
-            name: 'Deep Blue',
-            emoji: '🌀',
-            light: {
-                primary: 'bg-blue-600',
-                primaryHover: 'hover:bg-blue-700',
-                secondary: 'bg-blue-50',
-                background: 'bg-indigo-50',
-                surface: 'bg-blue-50',
-                text: 'text-blue-900',
-                textSecondary: 'text-blue-700',
-                border: 'border-blue-200',
-                messageOwn: 'bg-blue-200',
-                messageOther: 'bg-white',
-                accent: 'text-blue-600'
-            },
-            dark: {
-                primary: 'bg-blue-700',
-                primaryHover: 'hover:bg-blue-800',
-                secondary: 'bg-blue-900',
-                background: 'bg-blue-950',
-                surface: 'bg-blue-900',
-                text: 'text-blue-100',
-                textSecondary: 'text-blue-300',
-                border: 'border-blue-800',
-                messageOwn: 'bg-blue-800',
-                messageOther: 'bg-blue-900',
-                accent: 'text-blue-400'
-            }
-        },
-        warmRed: {
-            name: 'Warm Red',
-            emoji: '🔥',
-            light: {
-                primary: 'bg-red-500',
-                primaryHover: 'hover:bg-red-600',
-                secondary: 'bg-red-50',
-                background: 'bg-orange-50',
-                surface: 'bg-red-50',
-                text: 'text-red-900',
-                textSecondary: 'text-red-700',
-                border: 'border-red-200',
-                messageOwn: 'bg-red-200',
-                messageOther: 'bg-white',
-                accent: 'text-red-600'
-            },
-            dark: {
-                primary: 'bg-red-600',
-                primaryHover: 'hover:bg-red-700',
-                secondary: 'bg-red-900',
-                background: 'bg-red-950',
-                surface: 'bg-red-900',
-                text: 'text-red-100',
-                textSecondary: 'text-red-300',
-                border: 'border-red-800',
-                messageOwn: 'bg-red-800',
-                messageOther: 'bg-red-900',
-                accent: 'text-red-400'
-            }
-        },
-        mintGreen: {
-            name: 'Mint Fresh',
-            emoji: '🌿',
-            light: {
-                primary: 'bg-emerald-400',
-                primaryHover: 'hover:bg-emerald-500',
-                secondary: 'bg-emerald-50',
-                background: 'bg-teal-50',
-                surface: 'bg-emerald-50',
-                text: 'text-emerald-900',
-                textSecondary: 'text-emerald-700',
-                border: 'border-emerald-200',
-                messageOwn: 'bg-emerald-200',
-                messageOther: 'bg-white',
-                accent: 'text-emerald-600'
-            },
-            dark: {
-                primary: 'bg-emerald-500',
-                primaryHover: 'hover:bg-emerald-600',
-                secondary: 'bg-emerald-900',
-                background: 'bg-emerald-950',
-                surface: 'bg-emerald-900',
-                text: 'text-emerald-100',
-                textSecondary: 'text-emerald-300',
-                border: 'border-emerald-800',
-                messageOwn: 'bg-emerald-800',
-                messageOther: 'bg-emerald-900',
-                accent: 'text-emerald-400'
-            }
-        },
-        lavender: {
-            name: 'Lavender Dream',
-            emoji: '🪻',
-            light: {
-                primary: 'bg-purple-400',
-                primaryHover: 'hover:bg-purple-500',
-                secondary: 'bg-purple-50',
-                background: 'bg-violet-50',
-                surface: 'bg-purple-50',
-                text: 'text-purple-900',
-                textSecondary: 'text-purple-700',
-                border: 'border-purple-200',
-                messageOwn: 'bg-purple-200',
-                messageOther: 'bg-white',
-                accent: 'text-purple-600'
-            },
-            dark: {
-                primary: 'bg-purple-500',
-                primaryHover: 'hover:bg-purple-600',
-                secondary: 'bg-purple-900',
-                background: 'bg-purple-950',
-                surface: 'bg-purple-900',
-                text: 'text-purple-100',
-                textSecondary: 'text-purple-300',
-                border: 'border-purple-800',
-                messageOwn: 'bg-purple-800',
-                messageOther: 'bg-purple-900',
-                accent: 'text-purple-400'
-            }
-        },
-        coral: {
-            name: 'Coral Reef',
-            emoji: '🪸',
-            light: {
-                primary: 'bg-pink-400',
-                primaryHover: 'hover:bg-pink-500',
-                secondary: 'bg-pink-50',
-                background: 'bg-rose-50',
-                surface: 'bg-pink-50',
-                text: 'text-pink-900',
-                textSecondary: 'text-pink-700',
-                border: 'border-pink-200',
-                messageOwn: 'bg-pink-200',
-                messageOther: 'bg-white',
-                accent: 'text-pink-600'
-            },
-            dark: {
-                primary: 'bg-pink-500',
-                primaryHover: 'hover:bg-pink-600',
-                secondary: 'bg-pink-900',
-                background: 'bg-pink-950',
-                surface: 'bg-pink-900',
-                text: 'text-pink-100',
-                textSecondary: 'text-pink-300',
-                border: 'border-pink-800',
-                messageOwn: 'bg-pink-800',
-                messageOther: 'bg-pink-900',
-                accent: 'text-pink-400'
-            }
-        },
-        midnight: {
-            name: 'Midnight Blue',
-            emoji: '🌃',
-            light: {
-                primary: 'bg-slate-600',
-                primaryHover: 'hover:bg-slate-700',
-                secondary: 'bg-slate-100',
-                background: 'bg-slate-50',
-                surface: 'bg-slate-100',
-                text: 'text-slate-900',
-                textSecondary: 'text-slate-700',
-                border: 'border-slate-300',
-                messageOwn: 'bg-slate-300',
-                messageOther: 'bg-white',
-                accent: 'text-slate-600'
-            },
-            dark: {
-                primary: 'bg-slate-700',
-                primaryHover: 'hover:bg-slate-800',
-                secondary: 'bg-slate-900',
-                background: 'bg-slate-950',
-                surface: 'bg-slate-900',
-                text: 'text-slate-100',
-                textSecondary: 'text-slate-300',
-                border: 'border-slate-800',
-                messageOwn: 'bg-slate-800',
-                messageOther: 'bg-slate-900',
-                accent: 'text-slate-400'
-            }
+                return {
+                    ...conv,
+                    sender: currentMember,
+                    receiver: otherMember,
+                    isGroup: conv.members.length > 2
+                };
+            });
+            setChats(transformedChats);
+        } catch (error) {
+            console.error(error);
         }
     };
 
-    const currentColors = themes[currentTheme][isDark ? 'dark' : 'light'];
+    const fetchMessages = async (conversationId) => {
+        try {
+            const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/message/getmessage/${conversationId}`);
 
-    const [messages, setMessages] = useState([
-        {
-            id: 1,
-            text: "Hey! How's your day going?",
-            sender: 'other',
-            time: '10:30 AM',
-            avatar: '👨‍💻'
-        },
-        {
-            id: 2,
-            text: "Pretty good! Just working on some new projects. What about you?",
-            sender: 'own',
-            time: '10:32 AM'
-        },
-        {
-            id: 3,
-            text: "Same here! Working on a chat application with different themes. Check out this cool feature I'm building!",
-            sender: 'other',
-            time: '10:35 AM',
-            avatar: '👨‍💻'
-        },
-        {
-            id: 4,
-            text: "That sounds awesome! I'd love to see it when it's ready 🎉",
-            sender: 'own',
-            time: '10:36 AM'
+            // Get current user's MongoDB ID from the active contact if not set
+            let userMongoId = currentUserMongoId;
+            if (!userMongoId && activeContact) {
+                const currentMember = activeContact.members?.find(m => m.Email === senderEmail);
+                if (currentMember?._id) {
+                    userMongoId = currentMember._id;
+                    setCurrentUserMongoId(currentMember._id);
+                }
+            }
+
+            const formattedMessages = res.data.messages.map(msg => ({
+                id: msg._id,
+                text: msg.text,
+                sender: msg.sender._id === userMongoId ? 'own' : 'other',
+                senderId: msg.sender._id,
+                senderEmail: msg.sender.Email,
+                time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                emoji: msg.emoji,
+                attachments: msg.attachments,
+                senderName: msg.sender.userName
+            }));
+            setMessages(formattedMessages);
+        } catch (error) {
+            console.error('Error fetching messages:', error);
         }
-    ]);
+    };
 
-    const [activeContact, setActiveContact] = useState(null);
+    useEffect(() => {
+        if (senderEmail) fetchChats();
+    }, [senderEmail]);
+
+    useEffect(() => {
+        if (activeContact) {
+            // Ensure we have the current user's MongoDB ID before fetching messages
+            if (!currentUserMongoId && activeContact.members) {
+                const currentMember = activeContact.members.find(m => m.Email === senderEmail);
+                if (currentMember?._id) {
+                    setCurrentUserMongoId(currentMember._id);
+                }
+            }
+            fetchMessages(activeContact._id);
+        }
+    }, [activeContact]);
+
+    const addchat = async () => {
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/chat/add`, {
+                SenderEmail: senderEmail,
+                ReceiverEmail: newChatEmail,
+            });
+            if (res.status === 201) {
+                toast.success("User added to chat");
+                fetchChats();
+            }
+        } catch (error) {
+            toast.error("User not found");
+        }
+    };
+
+    const createGroup = async () => {
+        if (!groupTitle.trim() || selectedChatsForGroup.length < 2) {
+            toast.error("Group name and at least 2 members required");
+            return;
+        }
+
+        try {
+            const memberEmails = selectedChatsForGroup.map(chatId => {
+                const chats = chat.find(c => c._id === chatId);
+                return chats.sender?.Email === senderEmail ? chats.receiver?.Email : chats.sender?.Email;
+            });
+            memberEmails.push(senderEmail);
+
+            const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/chat/creategroup`, {
+                title: groupTitle,
+                memberEmails
+            });
+
+            if (res.status === 201) {
+                toast.success("Group created successfully");
+                fetchChats();
+                setShowCreateGroup(false);
+                setGroupTitle('');
+                setSelectedChatsForGroup([]);
+            }
+        } catch (error) {
+            toast.error("Failed to create group");
+        }
+    };
+
+    const handleFileSelect = (e) => {
+        setSelectedFiles(Array.from(e.target.files));
+    };
+
+    const handleSendMessage = async () => {
+        if (!message.trim() && selectedFiles.length === 0) return;
+
+        // Get MongoDB ID if not available
+        let userMongoId = currentUserMongoId;
+        if (!userMongoId && activeContact) {
+            const currentMember = activeContact.members?.find(m => m.Email === senderEmail);
+            if (currentMember?._id) {
+                userMongoId = currentMember._id;
+                setCurrentUserMongoId(currentMember._id);
+            }
+        }
+
+        if (!userMongoId) {
+            toast.error("User data not loaded. Please refresh the page.");
+            return;
+        }
+        if (!socket) {
+            toast.error("Connection lost. Please refresh the page.");
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('conversationId', activeContact._id);
+            formData.append('senderId', userMongoId);
+            formData.append('text', message);
+            selectedFiles.forEach((file) => formData.append('attachments', file));
+
+            // Create upload progress tracking only for files
+            const uploadId = Date.now();
+            if (selectedFiles.length > 0) {
+                setUploadProgress(prev => ({ ...prev, [uploadId]: 0 }));
+            }
+
+            const res = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/message/sendmessage`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                onUploadProgress: (progressEvent) => {
+                    if (selectedFiles.length > 0) {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setUploadProgress(prev => ({ ...prev, [uploadId]: percentCompleted }));
+                    }
+                }
+            });
+
+            // Remove progress indicator after upload
+            if (selectedFiles.length > 0) {
+                setTimeout(() => {
+                    setUploadProgress(prev => {
+                        const newProgress = { ...prev };
+                        delete newProgress[uploadId];
+                        return newProgress;
+                    });
+                }, 500);
+            }
+
+            const newMessage = {
+                id: res.data.message._id,
+                text: res.data.message.text,
+                sender: 'own',
+                senderId: userMongoId,
+                senderEmail: senderEmail,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                emoji: res.data.message.emoji,
+                attachments: res.data.message.attachments
+            };
+            setMessages(prev => [...prev, newMessage]);
+
+            if (activeContact.isGroup) {
+                activeContact.members.forEach(member => {
+                    if (member._id !== userMongoId) {
+                        socket.emit('sendMessage', {
+                            conversationId: activeContact._id,
+                            senderId: userMongoId,
+                            receiverId: member._id,
+                            text: res.data.message.text,
+                            emoji: res.data.message.emoji,
+                            attachments: res.data.message.attachments,
+                        });
+                    }
+                });
+            } else {
+                const receiverId = activeContact.sender?.Email === senderEmail
+                    ? activeContact.receiver?._id : activeContact.sender?._id;
+
+                socket.emit('sendMessage', {
+                    conversationId: activeContact._id,
+                    senderId: userMongoId,
+                    receiverId,
+                    text: res.data.message.text,
+                    emoji: res.data.message.emoji,
+                    attachments: res.data.message.attachments,
+                });
+            }
+
+            setMessage('');
+            setSelectedFiles([]);
+            fetchChats();
+        } catch (error) {
+            toast.error('Failed to send message');
+            // Remove progress indicator on error
+            setUploadProgress({});
+        }
+    };
+
+    const handleEmojiClick = (emojiObject) => {
+        setMessage(prev => prev + emojiObject.emoji);
+        setShowEmojiPicker(false);
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -947,20 +323,7 @@ const Chat = () => {
         if (chat.length > 0 && !activeContact) {
             setActiveContact(chat[0]);
         }
-    }, [chat, activeContact]);
-
-    const handleSendMessage = () => {
-        if (message.trim()) {
-            const newMessage = {
-                id: messages.length + 1,
-                text: message,
-                sender: 'own',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
-            setMessages([...messages, newMessage]);
-            setMessage('');
-        }
-    };
+    }, [chat]);
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -971,17 +334,22 @@ const Chat = () => {
 
     const handleAddChat = async () => {
         if (newChatEmail.trim()) {
-            console.log('Adding new chat for:', newChatEmail);
-            await addchat()
+            await addchat();
             setNewChatEmail('');
             setShowAddChat(false);
         }
     };
 
+    const toggleChatSelection = (chatId) => {
+        setSelectedChatsForGroup(prev =>
+            prev.includes(chatId) ? prev.filter(id => id !== chatId) : [...prev, chatId]
+        );
+    };
+
     const getThemePreview = (themeKey) => {
         const theme = themes[themeKey][isDark ? 'dark' : 'light'];
         return (
-            <div className="flex gap-1 ">
+            <div className="flex gap-1">
                 <div className={`w-3 h-3 rounded-full ${theme.primary}`}></div>
                 <div className={`w-3 h-3 rounded-full ${theme.messageOwn}`}></div>
                 <div className={`w-3 h-3 rounded-full ${theme.secondary}`}></div>
@@ -989,83 +357,254 @@ const Chat = () => {
         );
     };
 
+    const handleDownload = async (url, filename) => {
+        try {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename || 'download';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Download failed:', error);
+            toast.error('Failed to download file');
+        }
+    };
 
-    const sender = activeContact?.sender;
-    const receiver = activeContact?.receiver;
+    const filteredChats = chat.filter((contact) => {
+        if (contact.isGroup) {
+            return contact.title?.toLowerCase().includes(searchQuery.toLowerCase());
+        }
+        const otherUser = contact.sender?.Email === senderEmail ? contact.receiver : contact.sender;
+        if (!otherUser) return false;
+        const searchLower = searchQuery.toLowerCase();
+        return (
+            otherUser.userName?.toLowerCase().includes(searchLower) ||
+            otherUser.Email?.toLowerCase().includes(searchLower)
+        );
+    });
 
-    const senderemail = typeof sender === "object" ? sender?.Email : "";
-    const receiveremail = typeof receiver === "object" ? receiver?.Email : "";
+
+
+    // zegocloude setup
+
+    const zpRef = useRef(null);
+    const [zegoInstance, setZegoInstance] = useState(null);
+
+    useEffect(() => {
+        // Only initialize if we have the required data
+        if (!currentUserMongoId || !activeContact?._id) {
+            console.log("⏳ Waiting for user data...");
+            return;
+        }
+
+        const userID = currentUserMongoId;
+        const userName = user?.fullName || user?.firstName || "User";;
+        const appID = 829327717;
+        const serverSecret = "d8b81be74a29a63b7086b6c2ec228115";
+
+        // Dynamic Room ID (unique per chat)
+        const roomID = [currentUserMongoId, activeContact._id].sort().join("_");
+
+        console.log("🔧 Initializing Zego with:", { roomID, userID, userName });
+
+        try {
+            // Generate token inside useEffect
+            const TOKEN = ZegoUIKitPrebuilt.generateKitTokenForTest(
+                appID,
+                serverSecret,
+                roomID,
+                userID,
+                userName
+            );
+
+            // Create Zego instance
+            const zp = ZegoUIKitPrebuilt.create(TOKEN);
+
+            if (!zp) {
+                console.error("❌ Failed to create Zego instance");
+                return;
+            }
+
+            zp.addPlugins({ ZIM });
+            zpRef.current = zp;
+            setZegoInstance(zp);
+
+            console.log("✅ Zego initialized for user:", userName);
+
+            // Set up call invitation handlers
+            // Set up call invitation handlers
+            zp.setCallInvitationConfig({
+                onIncomingCallReceived: (callID, caller, callType, callees) => {
+                    console.log("📞 Incoming call from:", caller);
+                    toast.info(`Incoming call from ${caller.userName}`);
+
+                    // Show default Zego incoming call UI (will use ringtone)
+                    return true;
+                },
+                onIncomingCallCanceled: (callID, caller) => {
+                    toast.info("Call was canceled");
+                },
+                onIncomingCallTimeout: (callID, caller) => {
+                    toast.info("Missed call");
+                },
+                onOutgoingCallAccepted: (callID, callee) => {
+                    console.log("✅ Call accepted by:", callee);
+                    // Zego will handle joining the call automatically
+                },
+                onOutgoingCallRejected: (callID, callee) => {
+                    toast.error(`${callee.userName} rejected the call`);
+                },
+                onOutgoingCallTimeout: (callID, callees) => {
+                    toast.error("Call timeout - no answer");
+                },
+                // ✅ Ringtone config
+                ringtoneConfig: {
+                    incomingCallUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_3c5274b86b.mp3?filename=classic-phone-ringtone-6681.mp3",
+                    outgoingCallUrl: "https://cdn.pixabay.com/download/audio/2021/09/16/audio_9649306a73.mp3?filename=phone-dial-tone-476.mp3",
+                },
+            });
+
+        } catch (error) {
+            console.error("❌ Error initializing Zego:", error);
+            toast.error("Failed to initialize calling service");
+        }
+
+        return () => {
+            console.log("🧹 Cleaning up Zego instance");
+            if (zpRef.current) {
+                zpRef.current.destroy();
+                zpRef.current = null;
+            }
+        };
+    }, [currentUserMongoId, activeContact?._id]);
+
+    const sendInvite = async (type = "video") => {
+        if (!zegoInstance) {
+            console.error("❌ Zego not initialized yet");
+            toast.error("Calling service not ready. Please wait a moment.");
+            return;
+        }
+
+        if (!activeContact) {
+            console.error("❌ No active contact");
+            toast.error("No contact selected");
+            return;
+        }
+
+        // Get the receiver's information correctly
+        const receiver = activeContact.sender?.Email === senderEmail
+            ? activeContact.receiver
+            : activeContact.sender;
+
+        if (!receiver?._id || !receiver?.userName) {
+            console.error("❌ Contact information missing:", receiver);
+            toast.error("Contact information not available");
+            return;
+        }
+
+        const targetUser = {
+            userID: receiver._id,
+            userName: receiver.userName,
+        };
+
+        console.log("📞 Sending invite to:", targetUser);
+
+        try {
+            const callType = type === "video"
+                ? ZegoUIKitPrebuilt.InvitationTypeVideoCall
+                : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
+
+            // Generate unique room ID for this call
+            const roomID = "call_" + currentUserMongoId + "_" + receiver._id + "_" + Date.now();
+
+            const res = await zegoInstance.sendCallInvitation({
+                callees: [targetUser],
+                callType,
+                timeout: 60,
+                roomID: roomID,
+            });
+
+            console.log(`📞 ${type.toUpperCase()} call invitation sent:`, res);
+            toast.info(`Calling ${targetUser.userName}...`);
+
+        } catch (err) {
+            console.error("🚨 Error sending call invite:", err);
+            toast.error("Failed to send call invitation: " + (err.message || "Unknown error"));
+        }
+    };
+
+
 
     return (
         <div className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}>
-            {/* Sidebar */}
+            <ToastContainer position="top-center" autoClose={5000} theme={isDark ? "dark" : "light"} transition={Bounce} />
+
             <div className={`w-full sm:w-80 ${showThemeSelector ? 'hidden sm:flex' : 'flex'} ${currentColors.surface} ${currentColors.border} sm:border-r flex-col`}>
-                {/* Header */}
                 <div className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between`}>
-                   {isDark ? ( 
-                    <ToastContainer
-                        position="top-center"
-                        autoClose={5000}
-                        hideProgressBar={false}
-                        newestOnTop={false}
-                        closeOnClick={false}
-                        rtl={false}
-                        pauseOnFocusLoss
-                        draggable
-                        pauseOnHover
-                        theme="dark"
-                        transition={Bounce}
-                    />) : <ToastContainer
-                        position="top-center"
-                        autoClose={5000}
-                        hideProgressBar={false}
-                        newestOnTop={false}
-                        closeOnClick={false}
-                        rtl={false}
-                        pauseOnFocusLoss
-                        draggable
-                        pauseOnHover
-                        theme="light"
-                        transition={Bounce}
-                    /> }
                     <div className="flex items-center gap-2">
                         <div className="text-2xl">💬</div>
-                        <h1 className="text-xl font-semibold">TalkyChats</h1>
+                        <h1 className="text-xl font-semibold">Talkify</h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowAddChat(true);
-                            }}
-                            className={`p-2 rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
-                            title="Add New Chat"
-                        >
+                        <button onClick={() => setShowCreateGroup(true)} className={`p-2 rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`} title="Create Group">
+                            <UsersIcon size={18} />
+                        </button>
+                        <button onClick={() => setShowAddChat(true)} className={`p-2 rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`} title="Add New Chat">
                             <Plus size={18} />
                         </button>
-                        <button
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowThemeSelector(!showThemeSelector);
-                            }}
-                            className={`p-2 rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
-                            title="Change Theme"
-                        >
+                        <button onClick={() => setShowThemeSelector(!showThemeSelector)} className={`p-2 rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`} title="Change Theme">
                             <Palette size={18} />
                         </button>
-                        <button
-                            onClick={() => setIsDark(!isDark)}
-                            className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`}
-                            title={isDark ? 'Light Mode' : 'Dark Mode'}
-                        >
+                        <button onClick={() => setIsDark(!isDark)} className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`} title={isDark ? 'Light Mode' : 'Dark Mode'}>
                             {isDark ? '☀️' : '🌙'}
                         </button>
                     </div>
                 </div>
 
-                {/* Add Chat Modal */}
+                {showCreateGroup && (
+                    <div className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown max-h-96 overflow-y-auto`}>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold flex items-center gap-2">
+                                <UsersIcon size={20} />
+                                Create Group Chat
+                            </h3>
+                            <button onClick={() => { setShowCreateGroup(false); setSelectedChatsForGroup([]); setGroupTitle(''); }} className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            <input type="text" value={groupTitle} onChange={(e) => setGroupTitle(e.target.value)} placeholder="Group name..." className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-xl border ${currentColors.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} transition-all duration-200`} />
+                            <div className="text-sm font-medium mb-2">Select members ({selectedChatsForGroup.length} selected):</div>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {chat.filter(c => !c.isGroup).map((contact) => {
+                                    const otherUser = contact.sender?.Email === senderEmail ? contact.receiver : contact.sender;
+                                    if (!otherUser) return null;
+                                    const isSelected = selectedChatsForGroup.includes(contact._id);
+
+                                    return (
+                                        <div key={contact._id} onClick={() => toggleChatSelection(contact._id)} className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? `${currentColors.primary} text-white` : `${currentColors.background} ${currentColors.primaryHover}`}`}>
+                                            <div className="flex items-center gap-3">
+                                                <img src={otherUser.profileImg} alt={otherUser.userName} className="w-10 h-10 rounded-full" />
+                                                <div className="flex-1">
+                                                    <div className="font-medium">{otherUser.userName}</div>
+                                                    <div className={`text-xs ${isSelected ? 'text-white text-opacity-80' : currentColors.textSecondary}`}>{otherUser.Email}</div>
+                                                </div>
+                                                {isSelected && <Check size={20} />}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <button onClick={createGroup} disabled={!groupTitle.trim() || selectedChatsForGroup.length < 2} className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}>
+                                Create Group
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {showAddChat && (
                     <div className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown`}>
                         <div className="flex items-center justify-between mb-4">
@@ -1073,33 +612,19 @@ const Chat = () => {
                                 <Plus size={20} />
                                 Start New Chat
                             </h3>
-                            <button
-                                onClick={() => setShowAddChat(false)}
-                                className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
-                            >
-                                ✕
+                            <button onClick={() => setShowAddChat(false)} className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}>
+                                <X size={20} />
                             </button>
                         </div>
                         <div className="space-y-3">
-                            <input
-                                type="email"
-                                value={newChatEmail}
-                                onChange={(e) => setNewChatEmail(e.target.value)}
-                                placeholder="Enter email address..."
-                                className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-xl border ${currentColors.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} transition-all duration-200`}
-                            />
-                            <button
-                                onClick={handleAddChat}
-                                disabled={!newChatEmail.trim()}
-                                className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
-                            >
+                            <input type="email" value={newChatEmail} onChange={(e) => setNewChatEmail(e.target.value)} placeholder="Enter email address..." className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-xl border ${currentColors.border} focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} transition-all duration-200`} />
+                            <button onClick={handleAddChat} disabled={!newChatEmail.trim()} className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}>
                                 Add Chat
                             </button>
                         </div>
                     </div>
                 )}
 
-                {/* Enhanced Theme Selector */}
                 {showThemeSelector && (
                     <div className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b max-h-96 overflow-y-auto`}>
                         <div className="flex items-center justify-between mb-4">
@@ -1107,47 +632,19 @@ const Chat = () => {
                                 <Palette size={20} />
                                 Choose Your Theme
                             </h3>
-                            <button
-                                onClick={() => setShowThemeSelector(false)}
-                                className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors sm:hidden text-lg`}
-                            >
-                                ✕
+                            <button onClick={() => setShowThemeSelector(false)} className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}>
+                                <X size={20} />
                             </button>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {Object.entries(themes).map(([key, theme]) => (
-                                <button
-                                    key={key}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setCurrentTheme(key);
-                                        setShowThemeSelector(false);
-                                    }}
-                                    className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${currentTheme === key
-                                        ? `${currentColors.primary} text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace('bg-', 'ring-')}`
-                                        : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
-                                        }`}
-                                >
+                                <button key={key} onClick={() => { setCurrentTheme(key); setShowThemeSelector(false); }} className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${currentTheme === key ? `${currentColors.primary} text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace('bg-', 'ring-')}` : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`}`}>
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <span className="text-lg">{theme.emoji}</span>
                                             <div className="font-semibold text-sm">{theme.name}</div>
                                         </div>
                                         {getThemePreview(key)}
-                                    </div>
-                                    <div className={`text-xs opacity-75 ${currentTheme === key ? 'text-white' : currentColors.textSecondary}`}>
-                                        {key === 'default' ? 'Classic WhatsApp style' :
-                                            key === 'ocean' ? 'Cool ocean vibes' :
-                                                key === 'sunset' ? 'Warm sunset colors' :
-                                                    key === 'purple' ? 'Royal purple theme' :
-                                                        key === 'crimson' ? 'Bold red accents' :
-                                                            key === 'emerald' ? 'Forest green nature' :
-                                                                key === 'midnight' ? 'Dark blue night' :
-                                                                    key === 'coral' ? 'Ocean coral colors' :
-                                                                        key === 'lavender' ? 'Soft lavender vibes' :
-                                                                            key === 'mintGreen' ? 'Fresh mint style' :
-                                                                                'Beautiful unique style'}
                                     </div>
                                     {currentTheme === key && (
                                         <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded-full flex items-center justify-center">
@@ -1157,79 +654,56 @@ const Chat = () => {
                                 </button>
                             ))}
                         </div>
-                        <div className={`mt-4 p-3 rounded-lg ${currentColors.primary} bg-opacity-10 text-center`}>
-                            <p className={`text-sm ${currentColors.textSecondary}`}>
-                                🎨 <strong>{Object.keys(themes).length}+ Beautiful Themes</strong> available!
-                            </p>
-                        </div>
                     </div>
                 )}
 
-                {/* Search */}
                 <div className="p-4">
                     <div className={`relative ${currentColors.background} rounded-xl shadow-sm border ${currentColors.border}`}>
                         <Search className={`absolute left-3 top-3 ${currentColors.textSecondary}`} size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search chats..."
-                            className={`w-full pl-10 pr-4 py-3 ${currentColors.background} ${currentColors.text} rounded-xl focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} transition-all duration-200`}
-                        />
+                        <input type="text" placeholder="Search chats..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-10 pr-4 py-3 ${currentColors.background} ${currentColors.text} rounded-xl focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} transition-all duration-200`} />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className={`absolute right-3 top-3 ${currentColors.textSecondary} hover:text-red-500 transition-colors`}>
+                                <X size={18} />
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                {/* Contacts List */}
                 <div className="flex-1 overflow-y-auto">
-                    {chat.map((contact) => {
-                        // Determine "other person"
-                        const otherUser =
-                            contact.sender?.Email === senderEmail
-                                ? contact.receiver
-                                : contact.sender;
+                    {filteredChats.length === 0 && searchQuery && (
+                        <div className="p-4 text-center">
+                            <p className={`${currentColors.textSecondary}`}>No chats found for "{searchQuery}"</p>
+                        </div>
+                    )}
+                    {filteredChats.map((contact) => {
+                        const isGroup = contact.isGroup;
+                        const otherUser = isGroup ? null : (contact.sender?.Email === senderEmail ? contact.receiver : contact.sender);
 
                         return (
-                            <div
-                                key={contact._id}
-                                onClick={() => setActiveContact(otherUser)}
-                                className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${activeContact?._id === otherUser._id
-                                    ? currentColors.secondary +
-                                    " shadow-md border-l-4 " +
-                                    currentColors.primary.replace("bg-", "border-")
-                                    : currentColors.primaryHover
-                                    } ${currentColors.border} border-b last:border-b-0`}
-                            >
+                            <div key={contact._id} onClick={() => setActiveContact(contact)} className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${activeContact?._id === contact._id ? currentColors.secondary + " shadow-md border-l-4 " + currentColors.primary.replace("bg-", "border-") : currentColors.primaryHover} ${currentColors.border} border-b last:border-b-0`}>
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
-                                        <img
-                                            src={otherUser.profileImg}
-                                            alt={otherUser.userName}
-                                            className="w-12 h-12 rounded-full shadow-md object-cover"
-                                        />
-                                        {/* Optional online indicator */}
-                                        {otherUser.online && (
-                                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
+                                        {isGroup ? (
+                                            <div className={`w-12 h-12 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}>
+                                                <UsersIcon size={24} />
+                                            </div>
+                                        ) : (
+                                            <img src={otherUser?.profileImg} alt={otherUser?.userName} className="w-12 h-12 rounded-full shadow-md object-cover" />
                                         )}
                                     </div>
-
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="font-medium truncate">{otherUser.userName}</h3>
+                                            <h3 className="font-medium truncate">
+                                                {isGroup ? contact.title : otherUser?.userName}
+                                            </h3>
                                             <span className={`text-xs ${currentColors.textSecondary}`}>
-                                                {new Date(contact.updatedAt).toLocaleTimeString()}
+                                                {new Date(contact.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between">
-                                            <p
-                                                className={`text-sm ${currentColors.textSecondary} truncate`}
-                                            >
-                                                Last message placeholder
+                                            <p className={`text-sm ${currentColors.textSecondary} truncate`}>
+                                                {isGroup ? `${contact.members.length} members` : 'Tap to chat'}
                                             </p>
-                                            {contact.unread > 0 && (
-                                                <span
-                                                    className={`ml-2 px-2 py-1 ${currentColors.primary} text-white text-xs rounded-full min-w-[20px] text-center shadow-sm animate-bounce`}
-                                                >
-                                                    {contact.unread}
-                                                </span>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -1237,141 +711,162 @@ const Chat = () => {
                         );
                     })}
                 </div>
-
-
             </div>
 
-            {/* Chat Area */}
             <div className={`flex-1 flex flex-col ${showThemeSelector ? 'hidden sm:flex' : 'flex'}`}>
-                {/* Chat Header */}
                 <div className={`p-4 ${currentColors.surface} ${currentColors.border} border-b flex items-center justify-between shadow-lg backdrop-blur-sm`}>
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setShowThemeSelector(true)}
-                            className={`sm:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105`}
-                        >
+                        <button onClick={() => setShowThemeSelector(true)} className={`sm:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105`}>
                             ←
                         </button>
                         {activeContact && (
                             <>
-                                {/* ✅ Show the other user, not always receiver */}
                                 <div className="relative">
-
-
-                                    <img
-                                        src={
-                                            senderemail === senderEmail
-                                                ? receiver?.profileImg
-                                                : sender?.profileImg
-                                        }
-                                        alt={
-                                            senderemail === senderEmail
-                                                ? receiver?.userName
-                                                : sender?.userName
-                                        }
-                                        className="w-10 h-10 rounded-full shadow-md object-cover"
-                                    />
-
-                                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
+                                    {activeContact.isGroup ? (
+                                        <div className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}>
+                                            <UsersIcon size={20} />
+                                        </div>
+                                    ) : (
+                                        <img src={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.profileImg : activeContact.sender?.profileImg} alt={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName} className="w-10 h-10 rounded-full shadow-md object-cover" />
+                                    )}
                                 </div>
                                 <div>
                                     <h2 className="font-semibold">
-                                        {activeContact.sender.Email === senderEmail
-                                            ? activeContact.receiver.userName
-                                            : activeContact.sender.userName}
+                                        {activeContact.isGroup ? activeContact.title : (activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName)}
                                     </h2>
-                                    <p className={`text-xs ${currentColors.textSecondary} flex items-center gap-1`}>
-                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                        Online
+                                    <p className={`text-xs ${currentColors.textSecondary}`}>
+                                        {activeContact.isGroup ? `${activeContact.members.length} members` : 'Online'}
                                     </p>
                                 </div>
                             </>
                         )}
-                        {!activeContact && (
-                            <div>
-                                <h2 className="font-semibold">Select a chat</h2>
-                                <p className={`text-xs ${currentColors.textSecondary}`}>
-                                    Choose a conversation to start messaging
-                                </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {!activeContact?.isGroup ? (
+                            <>
+                                <button
+                                    onClick={() => sendInvite("audio")}
+                                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                                    title="Audio Call"
+                                >
+                                    <Phone size={20} />
+                                </button>
+                                <button
+                                    onClick={() => sendInvite("video")}
+                                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                                    title="Video Call"
+                                >
+                                    <Video size={20} />
+                                </button>
+                            </>
+                        ) : null}
+                        {isSignedIn && (
+                            <div className="hidden md:flex items-center">
+                                <UserButton />
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}>
-                            <Phone size={20} />
-                        </button>
-                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}>
-                            <Video size={20} />
-                        </button>
-                        <div className="hidden md:flex items-center space-x-4">
-                            {isSignedIn ? (
-                                <div className="flex items-center space-x-4">
-                                    <div className="scale-110">
-                                        <UserButton
-                                            appearance={{
-                                                elements: {
-                                                    avatarBox:
-                                                        "w-10 h-10 rounded-full border-2 border-purple-500/50 hover:border-purple-400 transition-colors",
-                                                },
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            ) : (
-                                <Users />
-                            )}
-                        </div>
-                    </div>
                 </div>
 
-                {/* Messages */}
                 <div className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}>
-                    {/* Background Pattern */}
-                    <div className="absolute inset-0 opacity-5 pointer-events-none">
-                        <div
-                            className="w-full h-full"
-                            style={{
-                                backgroundImage: `radial-gradient(circle at 20% 50%, ${currentColors.primary.replace(
-                                    "bg-",
-                                    ""
-                                )} 0%, transparent 50%), radial-gradient(circle at 80% 50%, ${currentColors.accent.replace(
-                                    "text-",
-                                    ""
-                                )} 0%, transparent 50%)`,
-                                backgroundSize: "100px 100px",
-                            }}
-                        ></div>
-                    </div>
-
-                    <div className="space-y-4 relative z-10">
+                    <div className="space-y-2 relative z-10">
                         {messages.map((msg) => {
-                            const isOwnMessage = msg.sender.Email === senderEmail;
+                            // Determine if message is from current user by comparing emails or IDs
+                            let isOwnMessage = false;
+                            if (currentUserMongoId) {
+                                isOwnMessage = msg.senderId === currentUserMongoId;
+                            } else if (senderEmail) {
+                                isOwnMessage = msg.senderEmail === senderEmail;
+                            }
+
+                            const hasOnlyEmoji = msg.emoji && !msg.text;
+
                             return (
-                                <div
-                                    key={msg._id}
-                                    className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} animate-fadeIn`}
-                                >
-                                    <div
-                                        className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02] ${isOwnMessage
-                                            ? `${currentColors.messageOwn} ml-auto backdrop-blur-sm border ${currentColors.primary.replace(
-                                                "bg-",
-                                                "border-"
-                                            ).replace("500", "200")}`
-                                            : `${currentColors.messageOther} ${currentColors.border} border backdrop-blur-sm`
-                                            }`}
-                                    >
-                                        <p className="text-sm leading-relaxed">{msg.text}</p>
-                                        <div className="flex items-center justify-end gap-1 mt-2">
-                                            <p className={`text-xs ${currentColors.textSecondary}`}>
-                                                {new Date(msg.createdAt).toLocaleTimeString()}
-                                            </p>
-                                            {isOwnMessage && (
-                                                <div className="flex">
-                                                    <div className={`w-3 h-3 ${currentColors.accent} opacity-60`}>✓</div>
-                                                    <div className={`w-3 h-3 ${currentColors.accent} -ml-1`}>✓</div>
+                                <div key={msg.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} animate-fadeIn`}>
+                                    <div className={`${hasOnlyEmoji ? 'bg-transparent shadow-none' : `rounded-lg shadow-sm ${isOwnMessage ? currentColors.messageOwn : currentColors.messageOther}`} max-w-xs lg:max-w-md`}>
+                                        {activeContact?.isGroup && !isOwnMessage && !hasOnlyEmoji && (
+                                            <p className="text-xs font-semibold px-3 pt-2 opacity-75">{msg.senderName}</p>
+                                        )}
+
+                                        {msg.attachments && msg.attachments.length > 0 && (
+                                            <div className={hasOnlyEmoji ? '' : 'overflow-hidden'}>
+                                                {msg.attachments.map((url, idx) => (
+                                                    <div key={idx}>
+                                                        {url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                                            <div className="relative">
+                                                                <img src={url} alt="attachment" className="rounded-lg w-full max-w-sm object-cover cursor-pointer" style={{ maxHeight: '350px', minWidth: '200px' }} />
+                                                            </div>
+                                                        ) : (
+                                                            <div className="p-2">
+                                                                <div className={`${isDark ? 'bg-gray-700' : 'bg-white bg-opacity-10'} rounded-lg p-3 flex items-center gap-3 min-w-64`}>
+                                                                    <div className="bg-red-500 rounded-lg p-3 flex-shrink-0">
+                                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                                                            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                                                                            <text x="7" y="17" fontSize="8" fill="white" fontWeight="bold">PDF</text>
+                                                                        </svg>
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <p className={`text-sm font-medium truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                                            {url.split('/').pop()?.split('?')[0] || 'Document.pdf'}
+                                                                        </p>
+                                                                        <p className={`text-xs mt-0.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                            PDF Document
+                                                                        </p>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleDownload(url, url.split('/').pop()?.split('?')[0] || 'document.pdf')}
+                                                                        className={`flex-shrink-0 ${isDark ? 'bg-gray-600 hover:bg-gray-500' : 'bg-white bg-opacity-20 hover:bg-opacity-30'} rounded-full p-2 transition-all`}
+                                                                    >
+                                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                                                            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {hasOnlyEmoji ? (
+                                            <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+                                                <span className="text-7xl leading-none mb-1">
+                                                    {msg.emoji}
+                                                </span>
+                                                <p className={`text-xs ${currentColors.textSecondary} opacity-70`}>
+                                                    {msg.time}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                {msg.text && (
+                                                    <div className="px-3 py-2">
+                                                        <div className="flex items-start gap-2">
+                                                            <p className="text-sm leading-relaxed flex-1 break-words">
+                                                                {msg.text}
+                                                            </p>
+                                                            {msg.emoji && (
+                                                                <span className="text-5xl leading-none flex-shrink-0">
+                                                                    {msg.emoji}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
+                                                    <p className={`text-xs ${currentColors.textSecondary} opacity-60`}>
+                                                        {msg.time}
+                                                    </p>
+                                                    {isOwnMessage && (
+                                                        <svg width="16" height="11" viewBox="0 0 16 11" className={`${currentColors.accent} opacity-60`}>
+                                                            <path d="M11.071.653a.5.5 0 0 0-.696.696L14.48 5.5l-4.105 4.151a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498zm-5 0a.5.5 0 0 0-.696.696L9.48 5.5 5.375 9.651a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498z" fill="currentColor" />
+                                                        </svg>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -1380,66 +875,85 @@ const Chat = () => {
                     </div>
                 </div>
 
-                {/* Message Input */}
                 <div className={`p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}>
+                    {selectedFiles.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                            {selectedFiles.map((file, idx) => (
+                                <div key={idx} className={`flex items-center gap-2 px-3 py-2 ${currentColors.secondary} rounded-lg`}>
+                                    {file.type.startsWith('image/') ? <Image size={16} /> : <File size={16} />}
+                                    <span className="text-sm truncate max-w-[150px]">{file.name}</span>
+                                    <button onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {Object.entries(uploadProgress).map(([id, progress]) => (
+                        <div key={id} className="mb-3">
+                            <div className={`${currentColors.secondary} rounded-lg p-3`}>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <File size={20} className={currentColors.textSecondary} />
+                                    <span className="text-sm flex-1">Uploading...</span>
+                                    <span className="text-sm font-medium">{progress}%</span>
+                                </div>
+                                <div className={`w-full ${isDark ? 'bg-gray-700' : 'bg-gray-200'} rounded-full h-1.5`}>
+                                    <div
+                                        className={`${currentColors.primary} h-1.5 rounded-full transition-all duration-300`}
+                                        style={{ width: `${progress}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {showEmojiPicker && (
+                        <div className="absolute bottom-20 right-4 z-50">
+                            <EmojiPicker onEmojiClick={handleEmojiClick} theme={isDark ? 'dark' : 'light'} />
+                        </div>
+                    )}
+
                     <div className="flex items-end gap-3">
-                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
+                        <input type="file" ref={fileInputRef} onChange={handleFileSelect} multiple className="hidden" />
+                        <button onClick={() => fileInputRef.current?.click()} className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
                             <Paperclip size={20} />
                         </button>
-                        <div
-                            className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}
-                        >
-                            <textarea
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
-                                placeholder="Type a message..."
-                                rows={1}
-                                className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
-                                    "bg-",
-                                    "focus:ring-"
-                                )} max-h-32 transition-all duration-200 placeholder-opacity-60`}
-                                style={{ minHeight: "48px" }}
-                            />
+                        <div className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}>
+                            <textarea value={message} onChange={(e) => setMessage(e.target.value)} onKeyPress={handleKeyPress} placeholder="Type a message..." rows={1} className={`w-full px-4 py-3 ${currentColors.background} ${currentColors.text} rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace('bg-', 'focus:ring-')} max-h-32 transition-all duration-200 placeholder-opacity-60`} style={{ minHeight: "48px" }} />
                         </div>
-                        <button className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
+                        <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}>
                             <Smile size={20} />
                         </button>
-                        {message.trim() ? (
-                            <button
-                                onClick={handleSendMessage}
-                                className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse`}
-                            >
+                        {message.trim() || selectedFiles.length > 0 ? (
+                            <button onClick={handleSendMessage} className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse`}>
                                 <Send size={20} />
                             </button>
                         ) : (
-                            <button
-                                className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}
-                            >
-                                <Mic size={20} />
+                            <button className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}>
+                                <Send size={20} />
                             </button>
                         )}
                     </div>
                 </div>
             </div>
 
-
             <style jsx>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.3s ease-out;
+                }
+                .animate-slideDown {
+                    animation: slideDown 0.3s ease-out;
+                }
+            `}</style>
         </div>
     );
 };

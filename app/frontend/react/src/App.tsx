@@ -1,13 +1,12 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+
 import './App.css'
-import StatusView from './component/StatusView'
 import { BrowserRouter ,Routes ,Route } from 'react-router-dom'
 import LandingPage from './component/LandingPage'
 import Chat from './component/Chat'
+import { useEffect } from 'react';
 function App() {
 
+  
   return (
     <>
       {/* <StatusView /> */}
