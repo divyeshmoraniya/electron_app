@@ -8,12 +8,9 @@ import io from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
 import themes from "./theme.js"
 
-
 // zego import 
-
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { ZIM } from "zego-zim-web";
-
 
 const Chat = () => {
     const [isDark, setIsDark] = useState(false);
@@ -33,6 +30,7 @@ const Chat = () => {
     const [selectedChatsForGroup, setSelectedChatsForGroup] = useState([]);
     const [socket, setSocket] = useState(null);
     const [currentUserMongoId, setCurrentUserMongoId] = useState(null);
+    const [showGroupMembers, setShowGroupMembers] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({});
     const [showCall, setShowCall] = useState(false);  
     const [callType, setCallType] = useState("video");  
@@ -67,6 +65,9 @@ const Chat = () => {
                         text: data.text,
                         sender: 'other',
                         senderId: data.senderId,
+                        senderName: data.senderName,
+                        senderEmail: data.senderEmail,
+                        senderProfileImg: data.senderProfileImg,
                         time: new Date(data.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         emoji: data.emoji,
                         attachments: data.attachments
@@ -108,26 +109,17 @@ const Chat = () => {
         try {
             const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/message/getmessage/${conversationId}`);
 
-            // Get current user's MongoDB ID from the active contact if not set
-            let userMongoId = currentUserMongoId;
-            if (!userMongoId && activeContact) {
-                const currentMember = activeContact.members?.find(m => m.Email === senderEmail);
-                if (currentMember?._id) {
-                    userMongoId = currentMember._id;
-                    setCurrentUserMongoId(currentMember._id);
-                }
-            }
-
             const formattedMessages = res.data.messages.map(msg => ({
                 id: msg._id,
                 text: msg.text,
-                sender: msg.sender._id === userMongoId ? 'own' : 'other',
+                sender: msg.sender.Email === senderEmail ? 'own' : 'other',
                 senderId: msg.sender._id,
                 senderEmail: msg.sender.Email,
+                senderName: msg.sender.userName,
+                senderProfileImg: msg.sender.profileImg,
                 time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 emoji: msg.emoji,
-                attachments: msg.attachments,
-                senderName: msg.sender.userName
+                attachments: msg.attachments
             }));
             setMessages(formattedMessages);
         } catch (error) {
@@ -141,7 +133,6 @@ const Chat = () => {
 
     useEffect(() => {
         if (activeContact) {
-            // Ensure we have the current user's MongoDB ID before fetching messages
             if (!currentUserMongoId && activeContact.members) {
                 const currentMember = activeContact.members.find(m => m.Email === senderEmail);
                 if (currentMember?._id) {
@@ -204,7 +195,6 @@ const Chat = () => {
     const handleSendMessage = async () => {
         if (!message.trim() && selectedFiles.length === 0) return;
 
-        // Get MongoDB ID if not available
         let userMongoId = currentUserMongoId;
         if (!userMongoId && activeContact) {
             const currentMember = activeContact.members?.find(m => m.Email === senderEmail);
@@ -230,7 +220,6 @@ const Chat = () => {
             formData.append('text', message);
             selectedFiles.forEach((file) => formData.append('attachments', file));
 
-            // Create upload progress tracking only for files
             const uploadId = Date.now();
             if (selectedFiles.length > 0) {
                 setUploadProgress(prev => ({ ...prev, [uploadId]: 0 }));
@@ -246,7 +235,6 @@ const Chat = () => {
                 }
             });
 
-            // Remove progress indicator after upload
             if (selectedFiles.length > 0) {
                 setTimeout(() => {
                     setUploadProgress(prev => {
@@ -263,6 +251,8 @@ const Chat = () => {
                 sender: 'own',
                 senderId: userMongoId,
                 senderEmail: senderEmail,
+                senderName: user?.fullName || user?.firstName || "You",
+                senderProfileImg: user?.imageUrl || 'https://i.pravatar.cc/150?img=2',
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 emoji: res.data.message.emoji,
                 attachments: res.data.message.attachments
@@ -279,6 +269,9 @@ const Chat = () => {
                             text: res.data.message.text,
                             emoji: res.data.message.emoji,
                             attachments: res.data.message.attachments,
+                            senderName: user?.fullName || user?.firstName || "You",
+                            senderEmail: senderEmail,
+                            senderProfileImg: user?.imageUrl || 'https://i.pravatar.cc/150?img=2'
                         });
                     }
                 });
@@ -293,6 +286,9 @@ const Chat = () => {
                     text: res.data.message.text,
                     emoji: res.data.message.emoji,
                     attachments: res.data.message.attachments,
+                    senderName: user?.fullName || user?.firstName || "You",
+                    senderEmail: senderEmail,
+                    senderProfileImg: user?.imageUrl || 'https://i.pravatar.cc/150?img=2'
                 });
             }
 
@@ -301,7 +297,6 @@ const Chat = () => {
             fetchChats();
         } catch (error) {
             toast.error('Failed to send message');
-            // Remove progress indicator on error
             setUploadProgress({});
         }
     };
@@ -386,15 +381,11 @@ const Chat = () => {
         );
     });
 
-
-
     // zegocloude setup
-
     const zpRef = useRef(null);
     const [zegoInstance, setZegoInstance] = useState(null);
 
     useEffect(() => {
-        // Only initialize if we have the required data
         if (!currentUserMongoId || !activeContact?._id) {
             console.log("⏳ Waiting for user data...");
             return;
@@ -404,14 +395,11 @@ const Chat = () => {
         const userName = user?.fullName || user?.firstName || "User";;
         const appID = 829327717;
         const serverSecret = "d8b81be74a29a63b7086b6c2ec228115";
-
-        // Dynamic Room ID (unique per chat)
         const roomID = [currentUserMongoId, activeContact._id].sort().join("_");
 
         console.log("🔧 Initializing Zego with:", { roomID, userID, userName });
 
         try {
-            // Generate token inside useEffect
             const TOKEN = ZegoUIKitPrebuilt.generateKitTokenForTest(
                 appID,
                 serverSecret,
@@ -420,7 +408,6 @@ const Chat = () => {
                 userName
             );
 
-            // Create Zego instance
             const zp = ZegoUIKitPrebuilt.create(TOKEN);
 
             if (!zp) {
@@ -434,14 +421,10 @@ const Chat = () => {
 
             console.log("✅ Zego initialized for user:", userName);
 
-            // Set up call invitation handlers
-            // Set up call invitation handlers
             zp.setCallInvitationConfig({
                 onIncomingCallReceived: (callID, caller, callType, callees) => {
                     console.log("📞 Incoming call from:", caller);
                     toast.info(`Incoming call from ${caller.userName}`);
-
-                    // Show default Zego incoming call UI (will use ringtone)
                     return true;
                 },
                 onIncomingCallCanceled: (callID, caller) => {
@@ -452,7 +435,6 @@ const Chat = () => {
                 },
                 onOutgoingCallAccepted: (callID, callee) => {
                     console.log("✅ Call accepted by:", callee);
-                    // Zego will handle joining the call automatically
                 },
                 onOutgoingCallRejected: (callID, callee) => {
                     toast.error(`${callee.userName} rejected the call`);
@@ -460,7 +442,6 @@ const Chat = () => {
                 onOutgoingCallTimeout: (callID, callees) => {
                     toast.error("Call timeout - no answer");
                 },
-                // ✅ Ringtone config
                 ringtoneConfig: {
                     incomingCallUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_3c5274b86b.mp3?filename=classic-phone-ringtone-6681.mp3",
                     outgoingCallUrl: "https://cdn.pixabay.com/download/audio/2021/09/16/audio_9649306a73.mp3?filename=phone-dial-tone-476.mp3",
@@ -494,7 +475,6 @@ const Chat = () => {
             return;
         }
 
-        // Get the receiver's information correctly
         const receiver = activeContact.sender?.Email === senderEmail
             ? activeContact.receiver
             : activeContact.sender;
@@ -517,7 +497,6 @@ const Chat = () => {
                 ? ZegoUIKitPrebuilt.InvitationTypeVideoCall
                 : ZegoUIKitPrebuilt.InvitationTypeVoiceCall;
 
-            // Generate unique room ID for this call
             const roomID = "call_" + currentUserMongoId + "_" + receiver._id + "_" + Date.now();
 
             const res = await zegoInstance.sendCallInvitation({
@@ -535,8 +514,6 @@ const Chat = () => {
             toast.error("Failed to send call invitation: " + (err.message || "Unknown error"));
         }
     };
-
-
 
     return (
         <div className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}>
@@ -723,14 +700,20 @@ const Chat = () => {
                             <>
                                 <div className="relative">
                                     {activeContact.isGroup ? (
-                                        <div className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}>
+                                        <div 
+                                            className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
+                                            onClick={() => setShowGroupMembers(!showGroupMembers)}
+                                        >
                                             <UsersIcon size={20} />
                                         </div>
                                     ) : (
                                         <img src={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.profileImg : activeContact.sender?.profileImg} alt={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName} className="w-10 h-10 rounded-full shadow-md object-cover" />
                                     )}
                                 </div>
-                                <div>
+                                <div 
+                                    className={activeContact.isGroup ? 'cursor-pointer' : ''}
+                                    onClick={() => activeContact.isGroup && setShowGroupMembers(!showGroupMembers)}
+                                >
                                     <h2 className="font-semibold">
                                         {activeContact.isGroup ? activeContact.title : (activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName)}
                                     </h2>
@@ -769,16 +752,41 @@ const Chat = () => {
                 </div>
 
                 <div className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}>
+                    {showGroupMembers && activeContact?.isGroup && (
+                        <div className={`${currentColors.surface} rounded-lg shadow-xl p-4 mb-4 border ${currentColors.border}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-lg">Group Members ({activeContact.members.length})</h3>
+                                <button 
+                                    onClick={() => setShowGroupMembers(false)} 
+                                    className={`p-1 rounded-full ${currentColors.primaryHover}`}
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {activeContact.members.map((member, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        className={`flex items-center gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
+                                    >
+                                        <img 
+                                            src={member.profileImg} 
+                                            alt={member.userName} 
+                                            className="w-10 h-10 rounded-full shadow-md object-cover" 
+                                        />
+                                        <div>
+                                            <p className="font-medium">{member.userName}</p>
+                                            <p className={`text-xs ${currentColors.textSecondary}`}>{member.Email}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-2 relative z-10">
                         {messages.map((msg) => {
-                            // Determine if message is from current user by comparing emails or IDs
-                            let isOwnMessage = false;
-                            if (currentUserMongoId) {
-                                isOwnMessage = msg.senderId === currentUserMongoId;
-                            } else if (senderEmail) {
-                                isOwnMessage = msg.senderEmail === senderEmail;
-                            }
-
+                            const isOwnMessage = msg.senderEmail === senderEmail;
                             const hasOnlyEmoji = msg.emoji && !msg.text;
 
                             return (
