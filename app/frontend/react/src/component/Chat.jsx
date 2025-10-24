@@ -32,10 +32,11 @@ const Chat = () => {
     const [currentUserMongoId, setCurrentUserMongoId] = useState(null);
     const [showGroupMembers, setShowGroupMembers] = useState(false);
     const [uploadProgress, setUploadProgress] = useState({});
-    const [showCall, setShowCall] = useState(false);  
-    const [callType, setCallType] = useState("video");  
-    const [callRoomID, setCallRoomID] = useState(null); 
-
+    const [showCall, setShowCall] = useState(false);
+    const [callType, setCallType] = useState("video");
+    const [callRoomID, setCallRoomID] = useState(null);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [onlineUsers, setOnlineUsers] = useState([]);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const { isSignedIn } = useAuth();
@@ -53,8 +54,24 @@ const Chat = () => {
     useEffect(() => {
         if (socket && currentUserMongoId) {
             socket.emit('addUser', currentUserMongoId);
+
+            socket.on('getUsers', (users) => {
+                console.log('Online users received:', users);
+                setOnlineUsers(users);
+            });
         }
+
+        return () => {
+            if (socket) socket.off('getUsers');
+        };
     }, [socket, currentUserMongoId]);
+
+    // Log online users for debugging
+    useEffect(() => {
+        console.log('Current online users state:', onlineUsers);
+    }, [onlineUsers]);
+
+    console.log(messages);
 
     useEffect(() => {
         if (socket && currentUserMongoId) {
@@ -108,19 +125,46 @@ const Chat = () => {
     const fetchMessages = async (conversationId) => {
         try {
             const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/message/getmessage/${conversationId}`);
+            
+            console.log('Fetched messages:', res.data.messages); // Debug log
 
-            const formattedMessages = res.data.messages.map(msg => ({
-                id: msg._id,
-                text: msg.text,
-                sender: msg.sender.Email === senderEmail ? 'own' : 'other',
-                senderId: msg.sender._id,
-                senderEmail: msg.sender.Email,
-                senderName: msg.sender.userName,
-                senderProfileImg: msg.sender.profileImg,
-                time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                emoji: msg.emoji,
-                attachments: msg.attachments
-            }));
+            const formattedMessages = res.data.messages.map(msg => {
+                // Check different possible structures
+                const msgSenderId = msg.sender?._id || msg.sender || msg.senderId;
+                
+                // Get sender details from activeContact members
+                let senderDetails = null;
+                if (activeContact && activeContact.members) {
+                    senderDetails = activeContact.members.find(m => 
+                        m._id === msgSenderId || 
+                        m._id === msg.sender?._id ||
+                        m._id === msg.sender
+                    );
+                }
+                
+                const msgSenderEmail = msg.sender?.Email || senderDetails?.Email || msg.senderEmail;
+                const msgSenderName = msg.sender?.userName || senderDetails?.userName || msg.senderName;
+                const msgSenderImg = msg.sender?.profileImg || senderDetails?.profileImg || msg.senderProfileImg;
+                
+                console.log('Message sender comparison:', {
+                    msgSenderEmail,
+                    currentUserEmail: senderEmail,
+                    isOwn: msgSenderEmail === senderEmail
+                });
+                
+                return {
+                    id: msg._id,
+                    text: msg.text,
+                    sender: msgSenderEmail === senderEmail ? 'own' : 'other',
+                    senderId: msgSenderId,
+                    senderEmail: msgSenderEmail,
+                    senderName: msgSenderName,
+                    senderProfileImg: msgSenderImg,
+                    time: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    emoji: msg.emoji,
+                    attachments: msg.attachments
+                };
+            });
             setMessages(formattedMessages);
         } catch (error) {
             console.error('Error fetching messages:', error);
@@ -368,6 +412,19 @@ const Chat = () => {
         }
     };
 
+    const isUserOnline = (userId) => {
+        if (!userId || !onlineUsers || onlineUsers.length === 0) return false;
+
+        // Check if user exists in online users array
+        const isOnline = onlineUsers.some(user => {
+            // Handle both possible formats: user.userId or user._id or direct userId
+            return user.userId === userId || user._id === userId || user === userId;
+        });
+
+        console.log(`Checking online status for ${userId}:`, isOnline);
+        return isOnline;
+    };
+
     const filteredChats = chat.filter((contact) => {
         if (contact.isGroup) {
             return contact.title?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -442,10 +499,17 @@ const Chat = () => {
                 onOutgoingCallTimeout: (callID, callees) => {
                     toast.error("Call timeout - no answer");
                 },
+                canInvitingInCalling: true,
+                onlyInitiatorCanInvite: true,
                 ringtoneConfig: {
-                    incomingCallUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_3c5274b86b.mp3?filename=classic-phone-ringtone-6681.mp3",
-                    outgoingCallUrl: "https://cdn.pixabay.com/download/audio/2021/09/16/audio_9649306a73.mp3?filename=phone-dial-tone-476.mp3",
+                    incomingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3", 
+                    outgoingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3", 
                 },
+
+
+
+                enableCustomCallInvitationDialog: false,
+                enableNotifyWhenAppRunningInBackgroundOrQuit: true,
             });
 
         } catch (error) {
@@ -514,6 +578,8 @@ const Chat = () => {
             toast.error("Failed to send call invitation: " + (err.message || "Unknown error"));
         }
     };
+
+
 
     return (
         <div className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}>
@@ -665,7 +731,12 @@ const Chat = () => {
                                                 <UsersIcon size={24} />
                                             </div>
                                         ) : (
-                                            <img src={otherUser?.profileImg} alt={otherUser?.userName} className="w-12 h-12 rounded-full shadow-md object-cover" />
+                                            <>
+                                                <img src={otherUser?.profileImg} alt={otherUser?.userName} className="w-12 h-12 rounded-full shadow-md object-cover" />
+                                                {isUserOnline(otherUser?._id) && (
+                                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -679,7 +750,7 @@ const Chat = () => {
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <p className={`text-sm ${currentColors.textSecondary} truncate`}>
-                                                {isGroup ? `${contact.members.length} members` : 'Tap to chat'}
+                                                {isGroup ? `${contact.members.length} members` : (isUserOnline(otherUser?._id) ? 'Online' : 'Offline')}
                                             </p>
                                         </div>
                                     </div>
@@ -700,17 +771,22 @@ const Chat = () => {
                             <>
                                 <div className="relative">
                                     {activeContact.isGroup ? (
-                                        <div 
+                                        <div
                                             className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
                                             onClick={() => setShowGroupMembers(!showGroupMembers)}
                                         >
                                             <UsersIcon size={20} />
                                         </div>
                                     ) : (
-                                        <img src={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.profileImg : activeContact.sender?.profileImg} alt={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName} className="w-10 h-10 rounded-full shadow-md object-cover" />
+                                        <>
+                                            <img src={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.profileImg : activeContact.sender?.profileImg} alt={activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName} className="w-10 h-10 rounded-full shadow-md object-cover" />
+                                            {isUserOnline(activeContact.sender?.Email === senderEmail ? activeContact.receiver?._id : activeContact.sender?._id) && (
+                                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                                            )}
+                                        </>
                                     )}
                                 </div>
-                                <div 
+                                <div
                                     className={activeContact.isGroup ? 'cursor-pointer' : ''}
                                     onClick={() => activeContact.isGroup && setShowGroupMembers(!showGroupMembers)}
                                 >
@@ -718,7 +794,7 @@ const Chat = () => {
                                         {activeContact.isGroup ? activeContact.title : (activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName)}
                                     </h2>
                                     <p className={`text-xs ${currentColors.textSecondary}`}>
-                                        {activeContact.isGroup ? `${activeContact.members.length} members` : 'Online'}
+                                        {activeContact.isGroup ? `${activeContact.members.length} members` : (isUserOnline(activeContact.sender?.Email === senderEmail ? activeContact.receiver?._id : activeContact.sender?._id) ? 'Online' : 'Offline')}
                                     </p>
                                 </div>
                             </>
@@ -756,8 +832,8 @@ const Chat = () => {
                         <div className={`${currentColors.surface} rounded-lg shadow-xl p-4 mb-4 border ${currentColors.border}`}>
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="font-semibold text-lg">Group Members ({activeContact.members.length})</h3>
-                                <button 
-                                    onClick={() => setShowGroupMembers(false)} 
+                                <button
+                                    onClick={() => setShowGroupMembers(false)}
                                     className={`p-1 rounded-full ${currentColors.primaryHover}`}
                                 >
                                     <X size={20} />
@@ -765,14 +841,14 @@ const Chat = () => {
                             </div>
                             <div className="space-y-2 max-h-60 overflow-y-auto">
                                 {activeContact.members.map((member, idx) => (
-                                    <div 
-                                        key={idx} 
+                                    <div
+                                        key={idx}
                                         className={`flex items-center gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
                                     >
-                                        <img 
-                                            src={member.profileImg} 
-                                            alt={member.userName} 
-                                            className="w-10 h-10 rounded-full shadow-md object-cover" 
+                                        <img
+                                            src={member.profileImg}
+                                            alt={member.userName}
+                                            className="w-10 h-10 rounded-full shadow-md object-cover"
                                         />
                                         <div>
                                             <p className="font-medium">{member.userName}</p>
@@ -784,17 +860,59 @@ const Chat = () => {
                         </div>
                     )}
 
-                    <div className="space-y-2 relative z-10">
+
+
+                    <div className="space-y-2 relative">
                         {messages.map((msg) => {
                             const isOwnMessage = msg.senderEmail === senderEmail;
                             const hasOnlyEmoji = msg.emoji && !msg.text;
 
                             return (
+
+
                                 <div key={msg.id} className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} animate-fadeIn`}>
                                     <div className={`${hasOnlyEmoji ? 'bg-transparent shadow-none' : `rounded-lg shadow-sm ${isOwnMessage ? currentColors.messageOwn : currentColors.messageOther}`} max-w-xs lg:max-w-md`}>
                                         {activeContact?.isGroup && !isOwnMessage && !hasOnlyEmoji && (
-                                            <p className="text-xs font-semibold px-3 pt-2 opacity-75">{msg.senderName}</p>
+                                            <div className='flex items-center gap-2 mb-1 px-2'>
+                                                {(() => {
+                                                    // Find sender info from activeContact members if not available in message
+                                                    const senderInfo = msg.senderName && msg.senderProfileImg
+                                                        ? { name: msg.senderName, img: msg.senderProfileImg }
+                                                        : activeContact.members?.find(m => m._id === msg.senderId || m.Email === msg.senderEmail) || {};
+
+                                                    const displayName = senderInfo.name || senderInfo.userName || msg.senderEmail?.split('@')[0] || 'Unknown';
+                                                    const displayImg = senderInfo.img || senderInfo.profileImg;
+
+                                                    return (
+                                                        <>
+                                                            {displayImg ? (
+                                                                <img
+                                                                    src={displayImg}
+                                                                    alt={displayName}
+                                                                    className="w-7 h-7 rounded-full shadow-md object-cover"
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    className="w-7 h-7 rounded-full shadow-md flex items-center justify-center text-white text-xs font-bold"
+                                                                    style={{
+                                                                        backgroundColor: `hsl(${((msg.senderId || msg.senderEmail || '').charCodeAt(0) || 0) * 137.5 % 360}, 70%, 50%)`
+                                                                    }}
+                                                                >
+                                                                    {displayName.charAt(0).toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                            <p className="text-xs font-semibold opacity-75">
+                                                                {displayName}
+                                                            </p>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
                                         )}
+
 
                                         {msg.attachments && msg.attachments.length > 0 && (
                                             <div className={hasOnlyEmoji ? '' : 'overflow-hidden'}>
@@ -917,7 +1035,7 @@ const Chat = () => {
                     ))}
 
                     {showEmojiPicker && (
-                        <div className="absolute bottom-20 right-4 z-50">
+                        <div className="fixed bottom-24 right-4 z-[100]" style={{ maxHeight: '400px' }}>
                             <EmojiPicker onEmojiClick={handleEmojiClick} theme={isDark ? 'dark' : 'light'} />
                         </div>
                     )}
