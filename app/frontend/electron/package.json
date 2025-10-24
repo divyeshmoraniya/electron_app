@@ -1,24 +1,40 @@
 {
-  "name": "electron",
+  "name": "takify-electron",
   "version": "1.0.0",
-  "description": "this is electron config for webochat",
+  "description": "Electron configuration for WeboChat",
   "keywords": [
     "electron",
+    "takify",
     "js"
   ],
   "license": "MIT",
-  "author": "divyesh moraniya",
+  "author": "Divyesh Moraniya",
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "dev" : "electronmon ."
+    "dev": "electronmon .",
+    "build": "electron-builder"
   },
   "devDependencies": {
-    "electron": "^37.3.1"
+    "electron": "^37.3.1",
+    "electron-builder": "^25.0.0"
   },
   "dependencies": {
     "electronmon": "^2.0.3"
+  },
+  "build": {
+    "appId": "com.Takify.desktop",
+    "productName": "Takify",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    }
   }
 }

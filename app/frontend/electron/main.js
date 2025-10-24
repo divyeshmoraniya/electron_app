@@ -15,12 +15,20 @@ const createWindow = () => {
     height: 600,
     icon: path.join(__dirname, "..", "react", "src", "assets", "chat.ico"),
     webPreferences: {
-      nodeIntegration : true
+      nodeIntegration : true,
+      preload: path.join(__dirname, 'preload.js'),
     },
+
   });
 
-  win.loadURL("http://localhost:5173"); // dev
-  // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html")); // production
+  // win.loadURL("http://localhost:5173"); // dev
+
+
+  win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html"));
+
+
+win.webContents.openDevTools();
+
 
   Menu.setApplicationMenu(null);
 
@@ -57,3 +65,28 @@ app.whenReady().then(createWindow);
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
+ipcMain.on('show-notification', (event, data) => {
+  const notification = new Notification({
+    title: data.sender,
+    body: data.text,
+    icon: path.join(__dirname, 'assets/chat-icon.png'),
+    silent: false,
+    actions: [
+      { type: 'button', text: 'View' },
+      { type: 'button', text: 'Reply' }
+    ],
+    closeButtonText: 'Ignore'
+  });
+
+  notification.on('action', (_, index) => {
+    if (index === 0) {
+      win.show(); // open app on "View"
+    } else if (index === 1) {
+      win.webContents.send('reply-to-message', data.sender);
+    }
+  });
+
+  notification.show();
+});
+
