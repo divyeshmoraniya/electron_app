@@ -1,4 +1,4 @@
-import express from "express" ;
+import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors"
 import dotenv from "dotenv"
@@ -9,6 +9,7 @@ import { Server } from "socket.io";
 import { userRouter } from "./src/routers/user.router.js";
 import { chatRouter } from "./src/routers/Chat.router.js";
 import { messageRouter } from "./src/routers/message.router.js";
+import { User } from "./src/models/user.models.js";
 
 const app = express();
 const server = createServer(app);
@@ -24,19 +25,19 @@ const io = new Server(server, {
 
 // cors options
 const corsOptions = {
-    origin: "*",
-    credentials: true,
-    methods: 'GET, POST, DELETE, PATCH, HEAD, PUT, OPTIONS',
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'Access-Control-Allow-Credentials',
-        'cache-control',
-        'svix-id',
-        'svix-timestamp',
-        'svix-signature',
-    ],
-    exposedHeaders: ['Authorization'],
+  origin: "*",
+  credentials: true,
+  methods: 'GET, POST, DELETE, PATCH, HEAD, PUT, OPTIONS',
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Access-Control-Allow-Credentials',
+    'cache-control',
+    'svix-id',
+    'svix-timestamp',
+    'svix-signature',
+  ],
+  exposedHeaders: ['Authorization'],
 };
 
 // default middelwares
@@ -46,14 +47,14 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.static('/tmp', { index: false }));
 
-app.get("/",(req,res) => {
-    res.status(200).json({msg : "backend is running"})
+app.get("/", (req, res) => {
+  res.status(200).json({ msg: "backend is running" })
 })
 
 // all required  apis 
 app.use("/api/user", userRouter);
-app.use("/api/chat",chatRouter);
-app.use("/api/message",messageRouter);
+app.use("/api/chat", chatRouter);
+app.use("/api/message", messageRouter);
 
 
 let users = new Map();
@@ -62,12 +63,24 @@ io.on("connection", (socket) => {
   console.log("🟢 User connected:", socket.id);
 
   // When user joins (send userId from frontend)
-  socket.on("addUser", (userId) => {
+  socket.on("addUser", async (userId) => {
     users.set(userId, socket.id);
-    console.log("Connected users:", users);
+    
+    // Update lastSeen to current time when user comes online
+    try {
+      await User.findByIdAndUpdate(userId, { lastSeen: new Date() });
+    } catch (error) {
+      console.error("Error updating lastSeen:", error);
+    }
+    
+    // Send current online users to the newly connected user
+    socket.emit("getUsers", Array.from(users.keys()));
+    
+    // Broadcast to all clients that this user is now online
+    io.emit("userOnline", userId);
   });
 
-  // Handle sending messages
+  // KEEP YOUR EXISTING sendMessage EXACTLY AS IT IS - NO CHANGES
   socket.on("sendMessage", ({ conversationId, senderId, receiverId, text, emoji, attachments }) => {
     const receiverSocketId = users.get(receiverId);
     if (receiverSocketId) {
@@ -83,19 +96,37 @@ io.on("connection", (socket) => {
   });
 
   // On disconnect
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("🔴 User disconnected:", socket.id);
-    for (let [key, value] of users.entries()) {
-      if (value === socket.id) {
-        users.delete(key);
+    let disconnectedUserId = null;
+    
+    for (let [userId, socketId] of users.entries()) {
+      if (socketId === socket.id) {
+        disconnectedUserId = userId;
+        users.delete(userId);
         break;
       }
+    }
+
+    if (disconnectedUserId) {
+      console.log("❌ User removed:", disconnectedUserId);
+      console.log("📊 Remaining users:", Array.from(users.keys()));
+      
+      // Update lastSeen when user goes offline
+      try {
+        await User.findByIdAndUpdate(disconnectedUserId, { lastSeen: new Date() });
+      } catch (error) {
+        console.error("Error updating lastSeen:", error);
+      }
+      
+      // Broadcast to all clients that this user is now offline
+      io.emit("userOffline", disconnectedUserId);
     }
   });
 });
 
 connectToDatabase().then(() => {
-   server.listen(port , () => {
+  server.listen(port, () => {
     console.log(`app is running on port : ${port}`)
-})
+  })
 });
