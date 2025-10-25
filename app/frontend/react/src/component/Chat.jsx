@@ -98,6 +98,34 @@ const Chat = () => {
         };
     }, [socket, activeContact, currentUserMongoId]);
 
+    // ADD THIS NEW useEffect - Listen for real-time online/offline status
+    useEffect(() => {
+        if (socket) {
+            // When someone comes online
+            socket.on('userOnline', (userId) => {
+                console.log('🟢 User came online:', userId);
+                setOnlineUsers(prev => {
+                    // Only add if not already in the list
+                    if (!prev.includes(userId)) {
+                        return [...prev, userId];
+                    }
+                    return prev;
+                });
+            });
+
+            // When someone goes offline
+            socket.on('userOffline', (userId) => {
+                console.log('🔴 User went offline:', userId);
+                setOnlineUsers(prev => prev.filter(id => id !== userId));
+            });
+
+            return () => {
+                socket.off('userOnline');
+                socket.off('userOffline');
+            };
+        }
+    }, [socket]);
+
     const fetchChats = async () => {
         try {
             const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/chat/getchat/${encodeURIComponent(senderEmail)}`);
@@ -125,33 +153,33 @@ const Chat = () => {
     const fetchMessages = async (conversationId) => {
         try {
             const res = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/message/getmessage/${conversationId}`);
-            
+
             console.log('Fetched messages:', res.data.messages); // Debug log
 
             const formattedMessages = res.data.messages.map(msg => {
                 // Check different possible structures
                 const msgSenderId = msg.sender?._id || msg.sender || msg.senderId;
-                
+
                 // Get sender details from activeContact members
                 let senderDetails = null;
                 if (activeContact && activeContact.members) {
-                    senderDetails = activeContact.members.find(m => 
-                        m._id === msgSenderId || 
+                    senderDetails = activeContact.members.find(m =>
+                        m._id === msgSenderId ||
                         m._id === msg.sender?._id ||
                         m._id === msg.sender
                     );
                 }
-                
+
                 const msgSenderEmail = msg.sender?.Email || senderDetails?.Email || msg.senderEmail;
                 const msgSenderName = msg.sender?.userName || senderDetails?.userName || msg.senderName;
                 const msgSenderImg = msg.sender?.profileImg || senderDetails?.profileImg || msg.senderProfileImg;
-                
+
                 console.log('Message sender comparison:', {
                     msgSenderEmail,
                     currentUserEmail: senderEmail,
                     isOwn: msgSenderEmail === senderEmail
                 });
-                
+
                 return {
                     id: msg._id,
                     text: msg.text,
@@ -413,15 +441,13 @@ const Chat = () => {
     };
 
     const isUserOnline = (userId) => {
-        if (!userId || !onlineUsers || onlineUsers.length === 0) return false;
+        if (!userId || !onlineUsers || onlineUsers.length === 0) {
+            return false;
+        }
 
-        // Check if user exists in online users array
-        const isOnline = onlineUsers.some(user => {
-            // Handle both possible formats: user.userId or user._id or direct userId
-            return user.userId === userId || user._id === userId || user === userId;
-        });
+        // Simple check - onlineUsers is just an array of user IDs
+        const isOnline = onlineUsers.includes(userId);
 
-        console.log(`Checking online status for ${userId}:`, isOnline);
         return isOnline;
     };
 
@@ -502,8 +528,8 @@ const Chat = () => {
                 canInvitingInCalling: true,
                 onlyInitiatorCanInvite: true,
                 ringtoneConfig: {
-                    incomingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3", 
-                    outgoingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3", 
+                    incomingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+                    outgoingCallUrl: "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
                 },
 
 
@@ -579,6 +605,25 @@ const Chat = () => {
         }
     };
 
+
+    const getLastSeenText = (lastSeen) => {
+        if (!lastSeen) return 'Offline';
+
+        const now = new Date();
+        const lastSeenDate = new Date(lastSeen);
+        const diffInMs = now - lastSeenDate;
+        const diffInMinutes = Math.floor(diffInMs / 60000);
+        const diffInHours = Math.floor(diffInMs / 3600000);
+        const diffInDays = Math.floor(diffInMs / 86400000);
+
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+        if (diffInDays === 1) return 'Yesterday';
+        if (diffInDays < 7) return `${diffInDays}d ago`;
+
+        return lastSeenDate.toLocaleDateString();
+    };
 
 
     return (
@@ -750,7 +795,13 @@ const Chat = () => {
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <p className={`text-sm ${currentColors.textSecondary} truncate`}>
-                                                {isGroup ? `${contact.members.length} members` : (isUserOnline(otherUser?._id) ? 'Online' : 'Offline')}
+                                                {isGroup
+                                                    ? `${contact.members.length} members`
+                                                    : (isUserOnline(otherUser?._id)
+                                                        ? <span className="text-green-500 font-medium">Online</span>
+                                                        : getLastSeenText(otherUser?.lastSeen)
+                                                    )
+                                                }
                                             </p>
                                         </div>
                                     </div>
@@ -794,7 +845,17 @@ const Chat = () => {
                                         {activeContact.isGroup ? activeContact.title : (activeContact.sender?.Email === senderEmail ? activeContact.receiver?.userName : activeContact.sender?.userName)}
                                     </h2>
                                     <p className={`text-xs ${currentColors.textSecondary}`}>
-                                        {activeContact.isGroup ? `${activeContact.members.length} members` : (isUserOnline(activeContact.sender?.Email === senderEmail ? activeContact.receiver?._id : activeContact.sender?._id) ? 'Online' : 'Offline')}
+                                        {activeContact.isGroup
+                                            ? `${activeContact.members.length} members`
+                                            : (() => {
+                                                const otherUser = activeContact.sender?.Email === senderEmail ? activeContact.receiver : activeContact.sender;
+                                                const userIsOnline = isUserOnline(otherUser?._id);
+
+                                                return userIsOnline
+                                                    ? <span className="text-green-500 font-medium">Online</span>
+                                                    : <span>Last seen {getLastSeenText(otherUser?.lastSeen)}</span>;
+                                            })()
+                                        }
                                     </p>
                                 </div>
                             </>

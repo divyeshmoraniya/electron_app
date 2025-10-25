@@ -21,10 +21,10 @@ const createWindow = () => {
 
   });
 
-  // win.loadURL("http://localhost:5173"); // dev
+  win.loadURL("http://localhost:5173"); // dev
 
 
-  win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html"));
+  // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html"));
 
 
 win.webContents.openDevTools();
