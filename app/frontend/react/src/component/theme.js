@@ -1,4 +1,4 @@
-const themes = {
+    const themes = {
     default: {
         name: 'WhatsApp Classic',
         emoji: '💬',

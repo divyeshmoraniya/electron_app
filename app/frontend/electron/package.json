@@ -21,7 +21,8 @@
     "electron-builder": "^25.0.0"
   },
   "dependencies": {
-    "electronmon": "^2.0.3"
+    "electronmon": "^2.0.3",
+    "zustand": "^5.0.8"
   },
   "build": {
     "appId": "com.Takify.desktop",
