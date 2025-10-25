@@ -138,34 +138,34 @@ const Chat = () => {
       if (socket) socket.off("getMessage");
     };
   }, [socket, activeContact, currentUserMongoId]);
-  
+
   // ADD THIS NEW useEffect - Listen for real-time online/offline status
-    useEffect(() => {
-        if (socket) {
-            // When someone comes online
-            socket.on('userOnline', (userId) => {
-                console.log('🟢 User came online:', userId);
-                setOnlineUsers(prev => {
-                    // Only add if not already in the list
-                    if (!prev.includes(userId)) {
-                        return [...prev, userId];
-                    }
-                    return prev;
-                });
-            });
+  useEffect(() => {
+    if (socket) {
+      // When someone comes online
+      socket.on("userOnline", (userId) => {
+        console.log("🟢 User came online:", userId);
+        setOnlineUsers((prev) => {
+          // Only add if not already in the list
+          if (!prev.includes(userId)) {
+            return [...prev, userId];
+          }
+          return prev;
+        });
+      });
 
-            // When someone goes offline
-            socket.on('userOffline', (userId) => {
-                console.log('🔴 User went offline:', userId);
-                setOnlineUsers(prev => prev.filter(id => id !== userId));
-            });
+      // When someone goes offline
+      socket.on("userOffline", (userId) => {
+        console.log("🔴 User went offline:", userId);
+        setOnlineUsers((prev) => prev.filter((id) => id !== userId));
+      });
 
-            return () => {
-                socket.off('userOnline');
-                socket.off('userOffline');
-            };
-        }
-    }, [socket]);
+      return () => {
+        socket.off("userOnline");
+        socket.off("userOffline");
+      };
+    }
+  }, [socket]);
 
   ////////////////////////////////
   //                            //
@@ -533,16 +533,16 @@ const Chat = () => {
     }
   };
 
-const isUserOnline = (userId) => {
-        if (!userId || !onlineUsers || onlineUsers.length === 0) {
-            return false;
-        }
+  const isUserOnline = (userId) => {
+    if (!userId || !onlineUsers || onlineUsers.length === 0) {
+      return false;
+    }
 
-        // Simple check - onlineUsers is just an array of user IDs
-        const isOnline = onlineUsers.includes(userId);
+    // Simple check - onlineUsers is just an array of user IDs
+    const isOnline = onlineUsers.includes(userId);
 
-        return isOnline;
-    };
+    return isOnline;
+  };
 
   const filteredChats = chat.filter((contact) => {
     if (contact.isGroup) {
@@ -702,931 +702,972 @@ const isUserOnline = (userId) => {
     }
   };
 
+  const getLastSeenText = (lastSeen) => {
+    if (!lastSeen) return "Offline";
+
+    const now = new Date();
+    const lastSeenDate = new Date(lastSeen);
+    const diffInMs = now - lastSeenDate;
+    const diffInMinutes = Math.floor(diffInMs / 60000);
+    const diffInHours = Math.floor(diffInMs / 3600000);
+    const diffInDays = Math.floor(diffInMs / 86400000);
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInDays === 1) return "Yesterday";
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+
+    return lastSeenDate.toLocaleDateString();
+  };
+
   return (
-    <div
-      className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}
-    >
+    <>
       <div
-        className={`w-full sm:w-80 ${
-          showThemeSelector ? "hidden sm:flex" : "flex"
-        } ${currentColors.surface} ${
-          currentColors.border
-        } sm:border-r flex-col`}
+        className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}
       >
         <div
-          className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between`}
+          className={`w-full sm:w-80 ${
+            showThemeSelector ? "hidden sm:flex" : "flex"
+          } ${currentColors.surface} ${
+            currentColors.border
+          } sm:border-r flex-col`}
         >
-          <div className="flex items-center gap-2">
-            <img src={`https://i.postimg.cc/ht2XW2hV/talkify-larged.png`} className="text-2xl rounded-full h-10"></img>
-            <h1 className="text-xl font-semibold">Talkify</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCreateGroup(true)}
-              className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
-              title="Create Group"
-            >
-              <UsersIcon size={18} />
-            </button>
-            <button
-              onClick={() => setShowAddChat(true)}
-              className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
-              title="Add New Chat"
-            >
-              <Plus size={18} />
-            </button>
-            <button
-              onClick={() => setShowThemeSelector(!showThemeSelector)}
-              className={`p-2 cursor-pointer  rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
-              title="Change Theme"
-            >
-              <Palette size={18} />
-            </button>
-            <button
-              onClick={async () => {
-                await changeDarkMode();
-                setIsDark(!isDark);
-                toast(
-                  `${
-                    darkState
-                      ? "Switched to Light Mode!"
-                      : "Switched to Dark Mode!"
-                  }`,
-                  {
-                    position: "top-right",
-                  }
-                );
-              }}
-              className={`p-2 cursor-pointer  rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`}
-              title={isDark ? "Light Mode" : "Dark Mode"}
-            >
-              {isDark ? (
-                <>
-                  <Sun size={18} />
-                </>
-              ) : (
-                <>
-                  <Moon size={18} />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {showCreateGroup && (
           <div
-            className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown max-h-96 overflow-y-auto`}
+            className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between`}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <UsersIcon size={20} />
-                Create Group Chat
-              </h3>
+            <div className="flex items-center gap-2">
+              <img
+                src={`https://i.postimg.cc/ht2XW2hV/talkify-larged.png`}
+                className="text-2xl rounded-full h-10"
+              ></img>
+              <h1 className="text-xl font-semibold">Talkify</h1>
+            </div>
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  setShowCreateGroup(false);
-                  setSelectedChatsForGroup([]);
-                  setGroupTitle("");
+                onClick={() => setShowCreateGroup(true)}
+                className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                title="Create Group"
+              >
+                <UsersIcon size={18} />
+              </button>
+              <button
+                onClick={() => setShowAddChat(true)}
+                className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                title="Add New Chat"
+              >
+                <Plus size={18} />
+              </button>
+              <button
+                onClick={() => setShowThemeSelector(!showThemeSelector)}
+                className={`p-2 cursor-pointer  rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                title="Change Theme"
+              >
+                <Palette size={18} />
+              </button>
+              <button
+                onClick={async () => {
+                  await changeDarkMode();
+                  setIsDark(!isDark);
+                  toast(
+                    `${
+                      darkState
+                        ? "Switched to Light Mode!"
+                        : "Switched to Dark Mode!"
+                    }`,
+                    {
+                      position: "top-right",
+                    }
+                  );
                 }}
-                className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                className={`p-2 cursor-pointer  rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`}
+                title={isDark ? "Light Mode" : "Dark Mode"}
               >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                type="text"
-                value={groupTitle}
-                onChange={(e) => setGroupTitle(e.target.value)}
-                placeholder="Group name..."
-                className={`w-full px-4 py-3 ${currentColors.background} ${
-                  currentColors.text
-                } rounded-xl border ${
-                  currentColors.border
-                } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
-                  "bg-",
-                  "focus:ring-"
-                )} transition-all duration-200`}
-              />
-              <div className="text-sm font-medium mb-2">
-                Select members ({selectedChatsForGroup.length} selected):
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {chat
-                  .filter((c) => !c.isGroup)
-                  .map((contact) => {
-                    const otherUser =
-                      contact.sender?.Email === senderEmail
-                        ? contact.receiver
-                        : contact.sender;
-                    if (!otherUser) return null;
-                    const isSelected = selectedChatsForGroup.includes(
-                      contact._id
-                    );
-
-                    return (
-                      <div
-                        key={contact._id}
-                        onClick={() => toggleChatSelection(contact._id)}
-                        className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                          isSelected
-                            ? `${currentColors.primary} text-white`
-                            : `${currentColors.background} ${currentColors.primaryHover}`
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={otherUser.profileImg}
-                            alt={otherUser.userName}
-                            className="w-10 h-10 rounded-full"
-                          />
-                          <div className="flex-1">
-                            <div className="font-medium">
-                              {otherUser.userName}
-                            </div>
-                            <div
-                              className={`text-xs ${
-                                isSelected
-                                  ? "text-white text-opacity-80"
-                                  : currentColors.textSecondary
-                              }`}
-                            >
-                              {otherUser.Email}
-                            </div>
-                          </div>
-                          {isSelected && <Check size={20} />}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-              <button
-                onClick={createGroup}
-                disabled={
-                  !groupTitle.trim() || selectedChatsForGroup.length < 2
-                }
-                className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
-              >
-                Create Group
+                {isDark ? (
+                  <>
+                    <Sun size={18} />
+                  </>
+                ) : (
+                  <>
+                    <Moon size={18} />
+                  </>
+                )}
               </button>
             </div>
           </div>
-        )}
 
-        {showAddChat && (
-          <div
-            className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Plus size={20} />
-                Start New Chat
-              </h3>
-              <button
-                onClick={() => setShowAddChat(false)}
-                className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <input
-                type="email"
-                value={newChatEmail}
-                onChange={(e) => setNewChatEmail(e.target.value)}
-                placeholder="Enter email address..."
-                className={`w-full px-4 py-3 ${currentColors.background} ${
-                  currentColors.text
-                } rounded-xl border ${
-                  currentColors.border
-                } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
-                  "bg-",
-                  "focus:ring-"
-                )} transition-all duration-200`}
-              />
-              <button
-                onClick={handleAddChat}
-                disabled={!newChatEmail.trim()}
-                className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
-              >
-                Add Chat
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showThemeSelector && (
-          <div
-            className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b max-h-96 overflow-y-auto`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Palette size={20} />
-                Choose Your Theme
-              </h3>
-              <button
-                onClick={() => setShowThemeSelector(false)}
-                className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {Object.entries(themes).map(([key, theme]) => (
-                <button
-                  key={key}
-                  onClick={() => {
-                    setCurrentTheme(key);
-                    change_theme(key);
-                    setShowThemeSelector(false);
-                  }}
-                  className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${
-                    currentTheme === key
-                      ? `${
-                          currentColors.primary
-                        } text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace(
-                          "bg-",
-                          "ring-"
-                        )}`
-                      : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{theme.emoji}</span>
-                      <div className="font-semibold text-sm">{theme.name}</div>
-                    </div>
-                    {getThemePreview(key)}
-                  </div>
-                  {currentTheme === key && (
-                    <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="p-4">
-          <div
-            className={`relative ${currentColors.background} rounded-xl shadow-sm border ${currentColors.border}`}
-          >
-            <Search
-              className={`absolute left-3 top-3 ${currentColors.textSecondary}`}
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Search chats..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-10 pr-4 py-3 ${currentColors.background} ${
-                currentColors.text
-              } rounded-xl focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
-                "bg-",
-                "focus:ring-"
-              )} transition-all duration-200`}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className={`absolute right-3 top-3 ${currentColors.textSecondary} hover:text-red-500 transition-colors`}
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {filteredChats.length === 0 && searchQuery && (
-            <div className="p-4 text-center">
-              <p className={`${currentColors.textSecondary}`}>
-                No chats found for "{searchQuery}"
-              </p>
-            </div>
-          )}
-          {filteredChats.map((contact) => {
-            const 
-            = contact.isGroup;
-            const otherUser = isGroup
-              ? null
-              : contact.sender?.Email === senderEmail
-              ? contact.receiver
-              : contact.sender;
-
-            return (
-              <div
-                key={contact._id}
-                onClick={() => setActiveContact(contact)}
-                className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${
-                  activeContact?._id === contact._id
-                    ? currentColors.secondary +
-                      " shadow-md border-l-4 " +
-                      currentColors.primary.replace("bg-", "border-")
-                    : currentColors.primaryHover
-                } ${currentColors.border} border-b last:border-b-0`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    {isGroup ? (
-                      <div
-                        className={`w-12 h-12 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}
-                      >
-                        <UsersIcon size={24} />
-                      </div>
-                    ) : (
-                      <>
-                        <img
-                          src={otherUser?.profileImg}
-                          alt={otherUser?.userName}
-                          className="w-12 h-12 rounded-full shadow-md object-cover"
-                        />
-                        {isUserOnline(otherUser?._id) && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium truncate">
-                        {isGroup ? contact.title : otherUser?.userName}
-                      </h3>
-                      <span
-                        className={`text-xs ${currentColors.textSecondary}`}
-                      >
-                        {new Date(contact.updatedAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                     <p className={text-sm ${currentColors.textSecondary} truncate}>
-                        {isGroup
-                        ? ${contact.members.length} members
-                         : (isUserOnline(otherUser?._id)
-                        ? <span className="text-green-500 font-medium">Online</span>
-                         : getLastSeenText(otherUser?.lastSeen)
-                             )
-                           }
-                       </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div
-        className={`flex-1 flex flex-col ${
-          showThemeSelector ? "hidden sm:flex" : "flex"
-        }`}
-      >
-        <div
-          className={`p-4 ${currentColors.surface} ${currentColors.border} border-b flex items-center justify-between shadow-lg backdrop-blur-sm`}
-        >
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowThemeSelector(true)}
-              className={`sm:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105`}
-            >
-              ←
-            </button>
-            {activeContact && (
-              <>
-                <div className="relative">
-                  {activeContact.isGroup ? (
-                    <div
-                      className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
-                      onClick={() => setShowGroupMembers(!showGroupMembers)}
-                    >
-                      <UsersIcon size={20} />
-                    </div>
-                  ) : (
-                    <>
-                      <img
-                        src={
-                          activeContact.sender?.Email === senderEmail
-                            ? activeContact.receiver?.profileImg
-                            : activeContact.sender?.profileImg
-                        }
-                        alt={
-                          activeContact.sender?.Email === senderEmail
-                            ? activeContact.receiver?.userName
-                            : activeContact.sender?.userName
-                        }
-                        className="w-10 h-10 rounded-full shadow-md object-cover"
-                      />
-                      {isUserOnline(
-                        activeContact.sender?.Email === senderEmail
-                          ? activeContact.receiver?._id
-                          : activeContact.sender?._id
-                      ) && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                      )}
-                    </>
-                  )}
-                </div>
-                <div
-                  className={activeContact.isGroup ? "cursor-pointer" : ""}
-                  onClick={() =>
-                    activeContact.isGroup &&
-                    setShowGroupMembers(!showGroupMembers)
-                  }
-                >
-                  <h2 className="font-semibold">
-                    {activeContact.isGroup
-                      ? activeContact.title
-                      : activeContact.sender?.Email === senderEmail
-                      ? activeContact.receiver?.userName
-                      : activeContact.sender?.userName}
-                  </h2>
-              <p className={text-xs ${currentColors.textSecondary}}>
-               {activeContact.isGroup
-              ? ${activeContact.members.length} members
-                 : (() => {
-                     const otherUser = activeContact.sender?.Email === senderEmail ? activeContact.receiver : activeContact.sender;
-                    const userIsOnline = isUserOnline(otherUser?._id);
-
-                return userIsOnline
-             ? <span className="text-green-500 font-medium">Online</span>
-           : <span>Last seen {getLastSeenText(otherUser?.lastSeen)}</span>;
-                  })()
-                }
-              </p>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {!activeContact?.isGroup ? (
-              <>
-                <button
-                  onClick={() => sendInvite("audio")}
-                  className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
-                  title="Audio Call"
-                >
-                  <Phone size={20} />
-                </button>
-                <button
-                  onClick={() => sendInvite("video")}
-                  className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
-                  title="Video Call"
-                >
-                  <Video size={20} />
-                </button>
-              </>
-            ) : null}
-            {isSignedIn && (
-              <div className="hidden md:flex items-center">
-                <UserButton />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div
-          className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}
-        >
-          {showGroupMembers && activeContact?.isGroup && (
+          {showCreateGroup && (
             <div
-              className={`${currentColors.surface} rounded-lg shadow-xl p-4 mb-4 border ${currentColors.border}`}
+              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown max-h-96 overflow-y-auto`}
             >
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-lg">
-                  Group Members ({activeContact.members.length})
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <UsersIcon size={20} />
+                  Create Group Chat
                 </h3>
                 <button
-                  onClick={() => setShowGroupMembers(false)}
-                  className={`p-1 rounded-full ${currentColors.primaryHover}`}
+                  onClick={() => {
+                    setShowCreateGroup(false);
+                    setSelectedChatsForGroup([]);
+                    setGroupTitle("");
+                  }}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
                 >
                   <X size={20} />
                 </button>
               </div>
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {activeContact.members.map((member, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex items-center gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={groupTitle}
+                  onChange={(e) => setGroupTitle(e.target.value)}
+                  placeholder="Group name..."
+                  className={`w-full px-4 py-3 ${currentColors.background} ${
+                    currentColors.text
+                  } rounded-xl border ${
+                    currentColors.border
+                  } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
+                    "bg-",
+                    "focus:ring-"
+                  )} transition-all duration-200`}
+                />
+                <div className="text-sm font-medium mb-2">
+                  Select members ({selectedChatsForGroup.length} selected):
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {chat
+                    .filter((c) => !c.isGroup)
+                    .map((contact) => {
+                      const otherUser =
+                        contact.sender?.Email === senderEmail
+                          ? contact.receiver
+                          : contact.sender;
+                      if (!otherUser) return null;
+                      const isSelected = selectedChatsForGroup.includes(
+                        contact._id
+                      );
+
+                      return (
+                        <div
+                          key={contact._id}
+                          onClick={() => toggleChatSelection(contact._id)}
+                          className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                            isSelected
+                              ? `${currentColors.primary} text-white`
+                              : `${currentColors.background} ${currentColors.primaryHover}`
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={otherUser.profileImg}
+                              alt={otherUser.userName}
+                              className="w-10 h-10 rounded-full"
+                            />
+                            <div className="flex-1">
+                              <div className="font-medium">
+                                {otherUser.userName}
+                              </div>
+                              <div
+                                className={`text-xs ${
+                                  isSelected
+                                    ? "text-white text-opacity-80"
+                                    : currentColors.textSecondary
+                                }`}
+                              >
+                                {otherUser.Email}
+                              </div>
+                            </div>
+                            {isSelected && <Check size={20} />}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                <button
+                  onClick={createGroup}
+                  disabled={
+                    !groupTitle.trim() || selectedChatsForGroup.length < 2
+                  }
+                  className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                >
+                  Create Group
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showAddChat && (
+            <div
+              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Plus size={20} />
+                  Start New Chat
+                </h3>
+                <button
+                  onClick={() => setShowAddChat(false)}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <input
+                  type="email"
+                  value={newChatEmail}
+                  onChange={(e) => setNewChatEmail(e.target.value)}
+                  placeholder="Enter email address..."
+                  className={`w-full px-4 py-3 ${currentColors.background} ${
+                    currentColors.text
+                  } rounded-xl border ${
+                    currentColors.border
+                  } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
+                    "bg-",
+                    "focus:ring-"
+                  )} transition-all duration-200`}
+                />
+                <button
+                  onClick={handleAddChat}
+                  disabled={!newChatEmail.trim()}
+                  className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                >
+                  Add Chat
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showThemeSelector && (
+            <div
+              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b max-h-96 overflow-y-auto`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Palette size={20} />
+                  Choose Your Theme
+                </h3>
+                <button
+                  onClick={() => setShowThemeSelector(false)}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Object.entries(themes).map(([key, theme]) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setCurrentTheme(key);
+                      change_theme(key);
+                      setShowThemeSelector(false);
+                    }}
+                    className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${
+                      currentTheme === key
+                        ? `${
+                            currentColors.primary
+                          } text-white shadow-lg ring-2 ring-offset-2 ring-opacity-50 ${currentColors.primary.replace(
+                            "bg-",
+                            "ring-"
+                          )}`
+                        : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
+                    }`}
                   >
-                    <img
-                      src={member.profileImg}
-                      alt={member.userName}
-                      className="w-10 h-10 rounded-full shadow-md object-cover"
-                    />
-                    <div>
-                      <p className="font-medium">{member.userName}</p>
-                      <p className={`text-xs ${currentColors.textSecondary}`}>
-                        {member.Email}
-                      </p>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{theme.emoji}</span>
+                        <div className="font-semibold text-sm">
+                          {theme.name}
+                        </div>
+                      </div>
+                      {getThemePreview(key)}
                     </div>
-                  </div>
+                    {currentTheme === key && (
+                      <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      </div>
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="space-y-2 relative">
-            {messages.map((msg) => {
-              const isOwnMessage = msg.senderEmail === senderEmail;
-              const hasOnlyEmoji = msg.emoji && !msg.text;
+          <div className="p-4">
+            <div
+              className={`relative ${currentColors.background} rounded-xl shadow-sm border ${currentColors.border}`}
+            >
+              <Search
+                className={`absolute left-3 top-3 ${currentColors.textSecondary}`}
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-10 pr-4 py-3 ${
+                  currentColors.background
+                } ${
+                  currentColors.text
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
+                  "bg-",
+                  "focus:ring-"
+                )} transition-all duration-200`}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className={`absolute right-3 top-3 ${currentColors.textSecondary} hover:text-red-500 transition-colors`}
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {filteredChats.length === 0 && searchQuery && (
+              <div className="p-4 text-center">
+                <p className={`${currentColors.textSecondary}`}>
+                  No chats found for "{searchQuery}"
+                </p>
+              </div>
+            )}
+            {filteredChats.map((contact) => {
+              const isGroup = contact.isGroup;
+              const otherUser = isGroup
+                ? null
+                : contact.sender?.Email === senderEmail
+                ? contact.receiver
+                : contact.sender;
 
               return (
                 <div
-                  key={msg.id}
-                  className={`flex ${
-                    isOwnMessage ? "justify-end" : "justify-start"
-                  } animate-fadeIn`}
+                  key={contact._id}
+                  onClick={() => setActiveContact(contact)}
+                  className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${
+                    activeContact?._id === contact._id
+                      ? currentColors.secondary +
+                        " shadow-md border-l-4 " +
+                        currentColors.primary.replace("bg-", "border-")
+                      : currentColors.primaryHover
+                  } ${currentColors.border} border-b last:border-b-0`}
                 >
-                  <div
-                    className={`${
-                      hasOnlyEmoji
-                        ? "bg-transparent shadow-none"
-                        : `rounded-lg shadow-sm ${
-                            isOwnMessage
-                              ? currentColors.messageOwn
-                              : currentColors.messageOther
-                          }`
-                    } max-w-xs lg:max-w-md`}
-                  >
-                    {activeContact?.isGroup &&
-                      !isOwnMessage &&
-                      !hasOnlyEmoji && (
-                        <div className="flex items-center gap-2 mb-1 px-2">
-                          {(() => {
-                            // Find sender info from activeContact members if not available in message
-                            const senderInfo =
-                              msg.senderName && msg.senderProfileImg
-                                ? {
-                                    name: msg.senderName,
-                                    img: msg.senderProfileImg,
-                                  }
-                                : activeContact.members?.find(
-                                    (m) =>
-                                      m._id === msg.senderId ||
-                                      m.Email === msg.senderEmail
-                                  ) || {};
-
-                            const displayName =
-                              senderInfo.name ||
-                              senderInfo.userName ||
-                              msg.senderEmail?.split("@")[0] ||
-                              "Unknown";
-                            const displayImg =
-                              senderInfo.img || senderInfo.profileImg;
-
-                            return (
-                              <>
-                                {displayImg ? (
-                                  <img
-                                    src={displayImg}
-                                    alt={displayName}
-                                    className="w-7 h-7 rounded-full shadow-md object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = "none";
-                                    }}
-                                  />
-                                ) : (
-                                  <div
-                                    className="w-7 h-7 rounded-full shadow-md flex items-center justify-center text-white text-xs font-bold"
-                                    style={{
-                                      backgroundColor: `hsl(${
-                                        (((
-                                          msg.senderId ||
-                                          msg.senderEmail ||
-                                          ""
-                                        ).charCodeAt(0) || 0) *
-                                          137.5) %
-                                        360
-                                      }, 70%, 50%)`,
-                                    }}
-                                  >
-                                    {displayName.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <p className="text-xs font-semibold opacity-75">
-                                  {displayName}
-                                </p>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                    {msg.attachments && msg.attachments.length > 0 && (
-                      <div className={hasOnlyEmoji ? "" : "overflow-hidden"}>
-                        {msg.attachments.map((url, idx) => (
-                          <div key={idx}>
-                            {url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
-                              <div className="relative">
-                                <img
-                                  src={url}
-                                  alt="attachment"
-                                  className="rounded-lg w-full max-w-sm object-cover cursor-pointer"
-                                  style={{
-                                    maxHeight: "350px",
-                                    minWidth: "200px",
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div className="p-2">
-                                <div
-                                  className={`${
-                                    isDark
-                                      ? "bg-gray-700"
-                                      : "bg-white bg-opacity-10"
-                                  } rounded-lg p-3 flex items-center gap-3 min-w-64`}
-                                >
-                                  <div className="bg-red-500 rounded-lg p-3 flex-shrink-0">
-                                    <svg
-                                      width="24"
-                                      height="24"
-                                      viewBox="0 0 24 24"
-                                      fill="white"
-                                    >
-                                      <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
-                                      <text
-                                        x="7"
-                                        y="17"
-                                        fontSize="8"
-                                        fill="white"
-                                        fontWeight="bold"
-                                      >
-                                        PDF
-                                      </text>
-                                    </svg>
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p
-                                      className={`text-sm font-medium truncate ${
-                                        isDark ? "text-white" : "text-gray-900"
-                                      }`}
-                                    >
-                                      {url.split("/").pop()?.split("?")[0] ||
-                                        "Document.pdf"}
-                                    </p>
-                                    <p
-                                      className={`text-xs mt-0.5 ${
-                                        isDark
-                                          ? "text-gray-400"
-                                          : "text-gray-600"
-                                      }`}
-                                    >
-                                      PDF Document
-                                    </p>
-                                  </div>
-                                  <button
-                                    onClick={() =>
-                                      handleDownload(
-                                        url,
-                                        url.split("/").pop()?.split("?")[0] ||
-                                          "document.pdf"
-                                      )
-                                    }
-                                    className={`flex-shrink-0 ${
-                                      isDark
-                                        ? "bg-gray-600 hover:bg-gray-500"
-                                        : "bg-white bg-opacity-20 hover:bg-opacity-30"
-                                    } rounded-full p-2 transition-all`}
-                                  >
-                                    <svg
-                                      width="24"
-                                      height="24"
-                                      viewBox="0 0 24 24"
-                                      fill="currentColor"
-                                    >
-                                      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {hasOnlyEmoji ? (
-                      <div
-                        className={`flex flex-col ${
-                          isOwnMessage ? "items-end" : "items-start"
-                        }`}
-                      >
-                        <span className="text-7xl leading-none mb-1">
-                          {msg.emoji}
-                        </span>
-                        <p
-                          className={`text-xs ${currentColors.textSecondary} opacity-70`}
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      {isGroup ? (
+                        <div
+                          className={`w-12 h-12 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}
                         >
-                          {msg.time}
+                          <UsersIcon size={24} />
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={otherUser?.profileImg}
+                            alt={otherUser?.userName}
+                            className="w-12 h-12 rounded-full shadow-md object-cover"
+                          />
+                          {isUserOnline(otherUser?._id) && (
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium truncate">
+                          {isGroup ? contact.title : otherUser?.userName}
+                        </h3>
+                        <span
+                          className={`text-xs ${currentColors.textSecondary}`}
+                        >
+                          {new Date(contact.updatedAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p
+                          className={`text-sm ${currentColors.textSecondary} truncate`}
+                        >
+                          {isGroup ? (
+                            `${contact.members.length} members`
+                          ) : isUserOnline(otherUser?._id) ? (
+                            <span className="text-green-500 font-medium">
+                              Online
+                            </span>
+                          ) : (
+                            getLastSeenText(otherUser?.lastSeen)
+                          )}
                         </p>
                       </div>
-                    ) : (
-                      <>
-                        {msg.text && (
-                          <div className="px-3 py-2">
-                            <div className="flex items-start gap-2">
-                              <p className="text-sm leading-relaxed flex-1 break-words">
-                                {msg.text}
-                              </p>
-                              {msg.emoji && (
-                                <span className="text-5xl leading-none flex-shrink-0">
-                                  {msg.emoji}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
-                          <p
-                            className={`text-xs ${currentColors.textSecondary} opacity-60`}
-                          >
-                            {msg.time}
-                          </p>
-                          {isOwnMessage && (
-                            <svg
-                              width="16"
-                              height="11"
-                              viewBox="0 0 16 11"
-                              className={`${currentColors.accent} opacity-60`}
-                            >
-                              <path
-                                d="M11.071.653a.5.5 0 0 0-.696.696L14.48 5.5l-4.105 4.151a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498zm-5 0a.5.5 0 0 0-.696.696L9.48 5.5 5.375 9.651a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498z"
-                                fill="currentColor"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
             })}
-            <div ref={messagesEndRef} />
           </div>
         </div>
 
         <div
-          className={`p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}
+          className={`flex-1 flex flex-col ${
+            showThemeSelector ? "hidden sm:flex" : "flex"
+          }`}
         >
-          {selectedFiles.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {selectedFiles.map((file, idx) => (
-                <div
-                  key={idx}
-                  className={`flex items-center gap-2 px-3 py-2 ${currentColors.secondary} rounded-lg`}
-                >
-                  {file.type.startsWith("image/") ? (
-                    <Image size={16} />
-                  ) : (
-                    <File size={16} />
-                  )}
-                  <span className="text-sm truncate max-w-[150px]">
-                    {file.name}
-                  </span>
-                  <button
+          <div
+            className={`p-4 ${currentColors.surface} ${currentColors.border} border-b flex items-center justify-between shadow-lg backdrop-blur-sm`}
+          >
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowThemeSelector(true)}
+                className={`sm:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105`}
+              >
+                ←
+              </button>
+              {activeContact && (
+                <>
+                  <div className="relative">
+                    {activeContact.isGroup ? (
+                      <div
+                        className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
+                        onClick={() => setShowGroupMembers(!showGroupMembers)}
+                      >
+                        <UsersIcon size={20} />
+                      </div>
+                    ) : (
+                      <>
+                        <img
+                          src={
+                            activeContact.sender?.Email === senderEmail
+                              ? activeContact.receiver?.profileImg
+                              : activeContact.sender?.profileImg
+                          }
+                          alt={
+                            activeContact.sender?.Email === senderEmail
+                              ? activeContact.receiver?.userName
+                              : activeContact.sender?.userName
+                          }
+                          className="w-10 h-10 rounded-full shadow-md object-cover"
+                        />
+                        {isUserOnline(
+                          activeContact.sender?.Email === senderEmail
+                            ? activeContact.receiver?._id
+                            : activeContact.sender?._id
+                        ) && (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div
+                    className={activeContact.isGroup ? "cursor-pointer" : ""}
                     onClick={() =>
-                      setSelectedFiles((prev) =>
-                        prev.filter((_, i) => i !== idx)
-                      )
+                      activeContact.isGroup &&
+                      setShowGroupMembers(!showGroupMembers)
                     }
-                    className="text-red-500 hover:text-red-700"
                   >
-                    <X size={16} />
+                    <h2 className="font-semibold">
+                      {activeContact.isGroup
+                        ? activeContact.title
+                        : activeContact.sender?.Email === senderEmail
+                        ? activeContact.receiver?.userName
+                        : activeContact.sender?.userName}
+                    </h2>
+                    <p className={`text-xs ${currentColors.textSecondary}`}>
+                      {activeContact.isGroup
+                        ? `${activeContact.members.length} members`
+                        : (() => {
+                            const otherUser =
+                              activeContact.sender?.Email === senderEmail
+                                ? activeContact.receiver
+                                : activeContact.sender;
+                            const userIsOnline = isUserOnline(otherUser?._id);
+
+                            return userIsOnline ? (
+                              <span className="text-green-500 font-medium">
+                                Online
+                              </span>
+                            ) : (
+                              <span>
+                                Last seen {getLastSeenText(otherUser?.lastSeen)}
+                              </span>
+                            );
+                          })()}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {!activeContact?.isGroup ? (
+                <>
+                  <button
+                    onClick={() => sendInvite("audio")}
+                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                    title="Audio Call"
+                  >
+                    <Phone size={20} />
+                  </button>
+                  <button
+                    onClick={() => sendInvite("video")}
+                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                    title="Video Call"
+                  >
+                    <Video size={20} />
+                  </button>
+                </>
+              ) : null}
+              {isSignedIn && (
+                <div className="hidden md:flex items-center">
+                  <UserButton />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}
+          >
+            {showGroupMembers && activeContact?.isGroup && (
+              <div
+                className={`${currentColors.surface} rounded-lg shadow-xl p-4 mb-4 border ${currentColors.border}`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-lg">
+                    Group Members ({activeContact.members.length})
+                  </h3>
+                  <button
+                    onClick={() => setShowGroupMembers(false)}
+                    className={`p-1 rounded-full ${currentColors.primaryHover}`}
+                  >
+                    <X size={20} />
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {Object.entries(uploadProgress).map(([id, progress]) => (
-            <div key={id} className="mb-3">
-              <div className={`${currentColors.secondary} rounded-lg p-3`}>
-                <div className="flex items-center gap-3 mb-2">
-                  <File size={20} className={currentColors.textSecondary} />
-                  <span className="text-sm flex-1">Uploading...</span>
-                  <span className="text-sm font-medium">{progress}%</span>
-                </div>
-                <div
-                  className={`w-full ${
-                    isDark ? "bg-gray-700" : "bg-gray-200"
-                  } rounded-full h-1.5`}
-                >
-                  <div
-                    className={`${currentColors.primary} h-1.5 rounded-full transition-all duration-300`}
-                    style={{ width: `${progress}%` }}
-                  ></div>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {activeContact.members.map((member, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
+                    >
+                      <img
+                        src={member.profileImg}
+                        alt={member.userName}
+                        className="w-10 h-10 rounded-full shadow-md object-cover"
+                      />
+                      <div>
+                        <p className="font-medium">{member.userName}</p>
+                        <p className={`text-xs ${currentColors.textSecondary}`}>
+                          {member.Email}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          ))}
-
-          {showEmojiPicker && (
-            <div
-              className="fixed bottom-24 right-4 z-[100]"
-              style={{ maxHeight: "400px" }}
-            >
-              <EmojiPicker
-                onEmojiClick={handleEmojiClick}
-                theme={isDark ? "dark" : "light"}
-              />
-            </div>
-          )}
-
-          <div className="flex items-end gap-3">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              multiple
-              className="hidden"
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
-            >
-              <Paperclip size={20} />
-            </button>
-            <div
-              className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}
-            >
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                rows={1}
-                className={`w-full px-4 py-3 ${currentColors.background} ${
-                  currentColors.text
-                } rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
-                  "bg-",
-                  "focus:ring-"
-                )} max-h-32 transition-all duration-200 placeholder-opacity-60`}
-                style={{ minHeight: "48px" }}
-              />
-            </div>
-            <button
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
-            >
-              <Smile size={20} />
-            </button>
-            {message.trim() || selectedFiles.length > 0 ? (
-              <button
-                onClick={handleSendMessage}
-                className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse`}
-              >
-                <Send size={20} />
-              </button>
-            ) : (
-              <button
-                className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}
-              >
-                <Send size={20} />
-              </button>
             )}
+
+            <div className="space-y-2 relative">
+              {messages.map((msg) => {
+                const isOwnMessage = msg.senderEmail === senderEmail;
+                const hasOnlyEmoji = msg.emoji && !msg.text;
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${
+                      isOwnMessage ? "justify-end" : "justify-start"
+                    } animate-fadeIn`}
+                  >
+                    <div
+                      className={`${
+                        hasOnlyEmoji
+                          ? "bg-transparent shadow-none"
+                          : `rounded-lg shadow-sm ${
+                              isOwnMessage
+                                ? currentColors.messageOwn
+                                : currentColors.messageOther
+                            }`
+                      } max-w-xs lg:max-w-md`}
+                    >
+                      {activeContact?.isGroup &&
+                        !isOwnMessage &&
+                        !hasOnlyEmoji && (
+                          <div className="flex items-center gap-2 mb-1 px-2">
+                            {(() => {
+                              // Find sender info from activeContact members if not available in message
+                              const senderInfo =
+                                msg.senderName && msg.senderProfileImg
+                                  ? {
+                                      name: msg.senderName,
+                                      img: msg.senderProfileImg,
+                                    }
+                                  : activeContact.members?.find(
+                                      (m) =>
+                                        m._id === msg.senderId ||
+                                        m.Email === msg.senderEmail
+                                    ) || {};
+
+                              const displayName =
+                                senderInfo.name ||
+                                senderInfo.userName ||
+                                msg.senderEmail?.split("@")[0] ||
+                                "Unknown";
+                              const displayImg =
+                                senderInfo.img || senderInfo.profileImg;
+
+                              return (
+                                <>
+                                  {displayImg ? (
+                                    <img
+                                      src={displayImg}
+                                      alt={displayName}
+                                      className="w-7 h-7 rounded-full shadow-md object-cover"
+                                      onError={(e) => {
+                                        e.target.style.display = "none";
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      className="w-7 h-7 rounded-full shadow-md flex items-center justify-center text-white text-xs font-bold"
+                                      style={{
+                                        backgroundColor: `hsl(${
+                                          (((
+                                            msg.senderId ||
+                                            msg.senderEmail ||
+                                            ""
+                                          ).charCodeAt(0) || 0) *
+                                            137.5) %
+                                          360
+                                        }, 70%, 50%)`,
+                                      }}
+                                    >
+                                      {displayName.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <p className="text-xs font-semibold opacity-75">
+                                    {displayName}
+                                  </p>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className={hasOnlyEmoji ? "" : "overflow-hidden"}>
+                          {msg.attachments.map((url, idx) => (
+                            <div key={idx}>
+                              {url.match(/\.(jpeg|jpg|gif|png|webp)$/i) ? (
+                                <div className="relative">
+                                  <img
+                                    src={url}
+                                    alt="attachment"
+                                    className="rounded-lg w-full max-w-sm object-cover cursor-pointer"
+                                    style={{
+                                      maxHeight: "350px",
+                                      minWidth: "200px",
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="p-2">
+                                  <div
+                                    className={`${
+                                      isDark
+                                        ? "bg-gray-700"
+                                        : "bg-white bg-opacity-10"
+                                    } rounded-lg p-3 flex items-center gap-3 min-w-64`}
+                                  >
+                                    <div className="bg-red-500 rounded-lg p-3 flex-shrink-0">
+                                      <svg
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="white"
+                                      >
+                                        <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
+                                        <text
+                                          x="7"
+                                          y="17"
+                                          fontSize="8"
+                                          fill="white"
+                                          fontWeight="bold"
+                                        >
+                                          PDF
+                                        </text>
+                                      </svg>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p
+                                        className={`text-sm font-medium truncate ${
+                                          isDark
+                                            ? "text-white"
+                                            : "text-gray-900"
+                                        }`}
+                                      >
+                                        {url.split("/").pop()?.split("?")[0] ||
+                                          "Document.pdf"}
+                                      </p>
+                                      <p
+                                        className={`text-xs mt-0.5 ${
+                                          isDark
+                                            ? "text-gray-400"
+                                            : "text-gray-600"
+                                        }`}
+                                      >
+                                        PDF Document
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() =>
+                                        handleDownload(
+                                          url,
+                                          url.split("/").pop()?.split("?")[0] ||
+                                            "document.pdf"
+                                        )
+                                      }
+                                      className={`flex-shrink-0 ${
+                                        isDark
+                                          ? "bg-gray-600 hover:bg-gray-500"
+                                          : "bg-white bg-opacity-20 hover:bg-opacity-30"
+                                      } rounded-full p-2 transition-all`}
+                                    >
+                                      <svg
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                      >
+                                        <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {hasOnlyEmoji ? (
+                        <div
+                          className={`flex flex-col ${
+                            isOwnMessage ? "items-end" : "items-start"
+                          }`}
+                        >
+                          <span className="text-7xl leading-none mb-1">
+                            {msg.emoji}
+                          </span>
+                          <p
+                            className={`text-xs ${currentColors.textSecondary} opacity-70`}
+                          >
+                            {msg.time}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {msg.text && (
+                            <div className="px-3 py-2">
+                              <div className="flex items-start gap-2">
+                                <p className="text-sm leading-relaxed flex-1 break-words">
+                                  {msg.text}
+                                </p>
+                                {msg.emoji && (
+                                  <span className="text-5xl leading-none flex-shrink-0">
+                                    {msg.emoji}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
+                            <p
+                              className={`text-xs ${currentColors.textSecondary} opacity-60`}
+                            >
+                              {msg.time}
+                            </p>
+                            {isOwnMessage && (
+                              <svg
+                                width="16"
+                                height="11"
+                                viewBox="0 0 16 11"
+                                className={`${currentColors.accent} opacity-60`}
+                              >
+                                <path
+                                  d="M11.071.653a.5.5 0 0 0-.696.696L14.48 5.5l-4.105 4.151a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498zm-5 0a.5.5 0 0 0-.696.696L9.48 5.5 5.375 9.651a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          <div
+            className={`p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}
+          >
+            {selectedFiles.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {selectedFiles.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex items-center gap-2 px-3 py-2 ${currentColors.secondary} rounded-lg`}
+                  >
+                    {file.type.startsWith("image/") ? (
+                      <Image size={16} />
+                    ) : (
+                      <File size={16} />
+                    )}
+                    <span className="text-sm truncate max-w-[150px]">
+                      {file.name}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setSelectedFiles((prev) =>
+                          prev.filter((_, i) => i !== idx)
+                        )
+                      }
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {Object.entries(uploadProgress).map(([id, progress]) => (
+              <div key={id} className="mb-3">
+                <div className={`${currentColors.secondary} rounded-lg p-3`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <File size={20} className={currentColors.textSecondary} />
+                    <span className="text-sm flex-1">Uploading...</span>
+                    <span className="text-sm font-medium">{progress}%</span>
+                  </div>
+                  <div
+                    className={`w-full ${
+                      isDark ? "bg-gray-700" : "bg-gray-200"
+                    } rounded-full h-1.5`}
+                  >
+                    <div
+                      className={`${currentColors.primary} h-1.5 rounded-full transition-all duration-300`}
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {showEmojiPicker && (
+              <div
+                className="fixed bottom-24 right-4 z-[100]"
+                style={{ maxHeight: "400px" }}
+              >
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme={isDark ? "dark" : "light"}
+                />
+              </div>
+            )}
+
+            <div className="flex items-end gap-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                multiple
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
+              >
+                <Paperclip size={20} />
+              </button>
+              <div
+                className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}
+              >
+                <textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message..."
+                  rows={1}
+                  className={`w-full px-4 py-3 ${currentColors.background} ${
+                    currentColors.text
+                  } rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
+                    "bg-",
+                    "focus:ring-"
+                  )} max-h-32 transition-all duration-200 placeholder-opacity-60`}
+                  style={{ minHeight: "48px" }}
+                />
+              </div>
+              <button
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
+              >
+                <Smile size={20} />
+              </button>
+              {message.trim() || selectedFiles.length > 0 ? (
+                <button
+                  onClick={handleSendMessage}
+                  className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse`}
+                >
+                  <Send size={20} />
+                </button>
+              ) : (
+                <button
+                  className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}
+                >
+                  <Send size={20} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
+        <style jsx>{`
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+          @keyframes slideDown {
+            from {
+              opacity: 0;
+              transform: translateY(-20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
-        }
-        @keyframes slideDown {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
+          .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+          .animate-slideDown {
+            animation: slideDown 0.3s ease-out;
           }
-        }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
-        .animate-slideDown {
-          animation: slideDown 0.3s ease-out;
-        }
-      `}</style>
-    </div>
+        `}</style>
+      </div>
+    </>
   );
 };
 
