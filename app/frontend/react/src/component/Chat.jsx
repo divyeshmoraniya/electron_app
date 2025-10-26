@@ -29,6 +29,7 @@ import themes from "./theme.js";
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { ZIM } from "zego-zim-web";
 import { useDarkStore, useThemseStore } from "../store/themeStore.js";
+import { getLastSeenText, handleDownload, scrollToBottom } from "../utils/chatUtils.js";
 
 const Chat = () => {
   ////////////////////////////////
@@ -469,12 +470,8 @@ const Chat = () => {
     setShowEmojiPicker(false);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    scrollToBottom(messagesEndRef);
   }, [messages]);
 
   useEffect(() => {
@@ -517,21 +514,7 @@ const Chat = () => {
     );
   };
 
-  const handleDownload = async (url, filename) => {
-    try {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "download";
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Failed to download file");
-    }
-  };
+
 
   const isUserOnline = (userId) => {
     if (!userId || !onlineUsers || onlineUsers.length === 0) {
@@ -700,25 +683,6 @@ const Chat = () => {
         "Failed to send call invitation: " + (err.message || "Unknown error")
       );
     }
-  };
-
-  const getLastSeenText = (lastSeen) => {
-    if (!lastSeen) return "Offline";
-
-    const now = new Date();
-    const lastSeenDate = new Date(lastSeen);
-    const diffInMs = now - lastSeenDate;
-    const diffInMinutes = Math.floor(diffInMs / 60000);
-    const diffInHours = Math.floor(diffInMs / 3600000);
-    const diffInDays = Math.floor(diffInMs / 86400000);
-
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    if (diffInDays === 1) return "Yesterday";
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-
-    return lastSeenDate.toLocaleDateString();
   };
 
   return (
