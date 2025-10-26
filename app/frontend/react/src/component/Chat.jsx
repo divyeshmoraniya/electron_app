@@ -404,7 +404,7 @@ const Chat = () => {
 
       const newMessage = {
         id: res.data.message._id,
-        text: res.data.message.text,
+        text: message,
         sender: "own",
         senderId: userMongoId,
         senderEmail: senderEmail,
