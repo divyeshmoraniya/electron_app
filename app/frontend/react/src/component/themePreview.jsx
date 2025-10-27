@@ -1,6 +1,6 @@
 import themes from "./theme";
 
-export const getThemePreview = (themeKey) => {
+export const getThemePreview = (themeKey, darkState) => {
   const theme = themes[themeKey][darkState ? "dark" : "light"];
   return (
     <>

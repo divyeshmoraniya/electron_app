@@ -16,6 +16,9 @@ import {
   File,
   Sun,
   Moon,
+  Menu,
+  ArrowLeft,
+  Info,
 } from "lucide-react";
 import { UserButton, useAuth, useUser } from "@clerk/clerk-react";
 import axios from "axios";
@@ -78,6 +81,7 @@ const Chat = () => {
   const [callRoomID, setCallRoomID] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [showSidebar, setShowSidebar] = useState(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { isSignedIn } = useAuth();
@@ -151,12 +155,9 @@ const Chat = () => {
     };
   }, [socket, currentUserMongoId]);
 
-  // Log online users for debugging
   useEffect(() => {
     console.log("Current online users state:", onlineUsers);
   }, [onlineUsers]);
-
-  //   console.log(messages);
 
   useEffect(() => {
     if (socket && currentUserMongoId) {
@@ -189,14 +190,11 @@ const Chat = () => {
     };
   }, [socket, activeContact, currentUserMongoId]);
 
-  // ADD THIS NEW useEffect - Listen for real-time online/offline status
   useEffect(() => {
     if (socket) {
-      // When someone comes online
       socket.on("userOnline", (userId) => {
         console.log("🟢 User came online:", userId);
         setOnlineUsers((prev) => {
-          // Only add if not already in the list
           if (!prev.includes(userId)) {
             return [...prev, userId];
           }
@@ -204,7 +202,6 @@ const Chat = () => {
         });
       });
 
-      // When someone goes offline
       socket.on("userOffline", (userId) => {
         console.log("🔴 User went offline:", userId);
         setOnlineUsers((prev) => prev.filter((id) => id !== userId));
@@ -225,13 +222,11 @@ const Chat = () => {
         }/api/message/getmessage/${conversationId}`
       );
 
-      console.log("Fetched messages:", res.data.messages); // Debug log
+      console.log("Fetched messages:", res.data.messages);
 
       const formattedMessages = res.data.messages.map((msg) => {
-        // Check different possible structures
         const msgSenderId = msg.sender?._id || msg.sender || msg.senderId;
 
-        // Get sender details from activeContact members
         let senderDetails = null;
         if (activeContact && activeContact.members) {
           senderDetails = activeContact.members.find(
@@ -523,7 +518,6 @@ const Chat = () => {
       return false;
     }
 
-    // Simple check - onlineUsers is just an array of user IDs
     const isOnline = onlineUsers.includes(userId);
 
     return isOnline;
@@ -687,49 +681,62 @@ const Chat = () => {
     }
   };
 
+  // Handle mobile contact selection
+  const handleContactSelect = (contact) => {
+    setActiveContact(contact);
+    if (window.innerWidth < 768) {
+      setShowSidebar(false);
+    }
+  };
+
   return (
     <>
       <div
-        className={`h-screen flex ${currentColors.background} ${currentColors.text} transition-colors duration-300`}
+        className={`h-screen flex overflow-hidden ${currentColors.background} ${currentColors.text} transition-colors duration-300`}
       >
+        {/* Sidebar */}
         <div
-          className={`w-full sm:w-80 ${
-            showThemeSelector ? "hidden sm:flex" : "flex"
-          } ${currentColors.surface} ${
+          className={`${
+            showSidebar ? "translate-x-0" : "-translate-x-full"
+          } md:translate-x-0 fixed md:relative z-30 w-full md:w-80 lg:w-96 h-full ${
+            currentColors.surface
+          } ${
             currentColors.border
-          } sm:border-r flex-col`}
+          } md:border-r flex flex-col transition-transform duration-300 ease-in-out`}
         >
+          {/* Header */}
           <div
-            className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between`}
+            className={`p-3 md:p-4 ${currentColors.secondary} ${currentColors.border} border-b flex items-center justify-between flex-shrink-0`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <img
                 src={`https://i.postimg.cc/ht2XW2hV/talkify-larged.png`}
-                className="text-2xl rounded-full h-10"
-              ></img>
-              <h1 className="text-xl font-semibold">Talkify</h1>
+                className="h-8 md:h-10 rounded-full flex-shrink-0"
+                alt="Talkify"
+              />
+              <h1 className="text-lg md:text-xl font-semibold truncate">Talkify</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowCreateGroup(true)}
-                className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                className={`p-1.5 md:p-2 cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
                 title="Create Group"
               >
-                <UsersIcon size={18} />
+                <UsersIcon size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button
                 onClick={() => setShowAddChat(true)}
-                className={`p-2  cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                className={`p-1.5 md:p-2 cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
                 title="Add New Chat"
               >
-                <Plus size={18} />
+                <Plus size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button
                 onClick={() => setShowThemeSelector(!showThemeSelector)}
-                className={`p-2 cursor-pointer  rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
+                className={`p-1.5 md:p-2 cursor-pointer rounded-full ${currentColors.primary} text-white ${currentColors.primaryHover} transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105`}
                 title="Change Theme"
               >
-                <Palette size={18} />
+                <Palette size={16} className="md:w-[18px] md:h-[18px]" />
               </button>
               <button
                 onClick={async () => {
@@ -746,30 +753,27 @@ const Chat = () => {
                     }
                   );
                 }}
-                className={`p-2 cursor-pointer  rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`}
+                className={`p-1.5 md:p-2 cursor-pointer rounded-full ${currentColors.primaryHover} transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105`}
                 title={isDark ? "Light Mode" : "Dark Mode"}
               >
                 {isDark ? (
-                  <>
-                    <Sun size={18} />
-                  </>
+                  <Sun size={16} className="md:w-[18px] md:h-[18px]" />
                 ) : (
-                  <>
-                    <Moon size={18} />
-                  </>
+                  <Moon size={16} className="md:w-[18px] md:h-[18px]" />
                 )}
               </button>
             </div>
           </div>
 
+          {/* Create Group Panel */}
           {showCreateGroup && (
             <div
-              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown max-h-96 overflow-y-auto`}
+              className={`p-3 md:p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown max-h-80 md:max-h-96 overflow-y-auto flex-shrink-0`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <UsersIcon size={20} />
-                  Create Group Chat
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <UsersIcon size={18} className="md:w-5 md:h-5" />
+                  <span className="truncate">Create Group</span>
                 </h3>
                 <button
                   onClick={() => {
@@ -777,30 +781,30 @@ const Chat = () => {
                     setSelectedChatsForGroup([]);
                     setGroupTitle("");
                   }}
-                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors flex-shrink-0`}
                 >
-                  <X size={20} />
+                  <X size={18} className="md:w-5 md:h-5" />
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 <input
                   type="text"
                   value={groupTitle}
                   onChange={(e) => setGroupTitle(e.target.value)}
                   placeholder="Group name..."
-                  className={`w-full px-4 py-3 ${currentColors.background} ${
-                    currentColors.text
-                  } rounded-xl border ${
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base ${
+                    currentColors.background
+                  } ${currentColors.text} rounded-xl border ${
                     currentColors.border
                   } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
                     "bg-",
                     "focus:ring-"
                   )} transition-all duration-200`}
                 />
-                <div className="text-sm font-medium mb-2">
+                <div className="text-xs md:text-sm font-medium mb-2">
                   Select members ({selectedChatsForGroup.length} selected):
                 </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-40 md:max-h-48 overflow-y-auto">
                   {chat
                     .filter((c) => !c.isGroup)
                     .map((contact) => {
@@ -817,20 +821,20 @@ const Chat = () => {
                         <div
                           key={contact._id}
                           onClick={() => toggleChatSelection(contact._id)}
-                          className={`p-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                          className={`p-2 md:p-3 rounded-xl cursor-pointer transition-all duration-200 ${
                             isSelected
                               ? `${currentColors.primary} text-white`
                               : `${currentColors.background} ${currentColors.primaryHover}`
                           }`}
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 md:gap-3 min-w-0">
                             <img
                               src={otherUser.profileImg}
                               alt={otherUser.userName}
-                              className="w-10 h-10 rounded-full"
+                              className="w-8 h-8 md:w-10 md:h-10 rounded-full flex-shrink-0 object-cover"
                             />
-                            <div className="flex-1">
-                              <div className="font-medium">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm md:text-base truncate">
                                 {otherUser.userName}
                               </div>
                               <div
@@ -838,12 +842,12 @@ const Chat = () => {
                                   isSelected
                                     ? "text-white text-opacity-80"
                                     : currentColors.textSecondary
-                                }`}
+                                } truncate`}
                               >
                                 {otherUser.Email}
                               </div>
                             </div>
-                            {isSelected && <Check size={20} />}
+                            {isSelected && <Check size={18} className="md:w-5 md:h-5 flex-shrink-0" />}
                           </div>
                         </div>
                       );
@@ -854,7 +858,7 @@ const Chat = () => {
                   disabled={
                     !groupTitle.trim() || selectedChatsForGroup.length < 2
                   }
-                  className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                  className={`w-full py-2 md:py-3 px-3 md:px-4 text-sm md:text-base ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                 >
                   Create Group
                 </button>
@@ -862,31 +866,32 @@ const Chat = () => {
             </div>
           )}
 
+          {/* Add Chat Panel */}
           {showAddChat && (
             <div
-              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown`}
+              className={`p-3 md:p-4 ${currentColors.secondary} ${currentColors.border} border-b animate-slideDown flex-shrink-0`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Plus size={20} />
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <Plus size={18} className="md:w-5 md:h-5" />
                   Start New Chat
                 </h3>
                 <button
                   onClick={() => setShowAddChat(false)}
-                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors`}
                 >
-                  <X size={20} />
+                  <X size={18} className="md:w-5 md:h-5" />
                 </button>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 <input
                   type="email"
                   value={newChatEmail}
                   onChange={(e) => setNewChatEmail(e.target.value)}
                   placeholder="Enter email address..."
-                  className={`w-full px-4 py-3 ${currentColors.background} ${
-                    currentColors.text
-                  } rounded-xl border ${
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base ${
+                    currentColors.background
+                  } ${currentColors.text} rounded-xl border ${
                     currentColors.border
                   } focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
                     "bg-",
@@ -896,7 +901,7 @@ const Chat = () => {
                 <button
                   onClick={handleAddChat}
                   disabled={!newChatEmail.trim()}
-                  className={`w-full py-3 px-4 ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                  className={`w-full py-2 md:py-3 px-3 md:px-4 text-sm md:text-base ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                 >
                   Add Chat
                 </button>
@@ -904,23 +909,24 @@ const Chat = () => {
             </div>
           )}
 
+          {/* Theme Selector */}
           {showThemeSelector && (
             <div
-              className={`p-4 ${currentColors.secondary} ${currentColors.border} border-b max-h-96 overflow-y-auto`}
+              className={`p-3 md:p-4 ${currentColors.secondary} ${currentColors.border} border-b max-h-80 md:max-h-96 overflow-y-auto flex-shrink-0`}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Palette size={20} />
-                  Choose Your Theme
+              <div className="flex items-center justify-between mb-3 md:mb-4">
+                <h3 className="text-base md:text-lg font-semibold flex items-center gap-2">
+                  <Palette size={18} className="md:w-5 md:h-5" />
+                  Choose Theme
                 </h3>
                 <button
                   onClick={() => setShowThemeSelector(false)}
-                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors text-lg`}
+                  className={`p-1 rounded-full ${currentColors.primaryHover} transition-colors`}
                 >
-                  <X size={20} />
+                  <X size={18} className="md:w-5 md:h-5" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 md:gap-3">
                 {Object.entries(themes).map(([key, theme]) => (
                   <button
                     key={key}
@@ -929,7 +935,7 @@ const Chat = () => {
                       change_theme(key);
                       setShowThemeSelector(false);
                     }}
-                    className={`group relative p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${
+                    className={`group relative p-3 md:p-4 rounded-xl text-left transition-all duration-300 hover:scale-105 transform ${
                       currentTheme === key
                         ? `${
                             currentColors.primary
@@ -940,18 +946,18 @@ const Chat = () => {
                         : `${currentColors.background} ${currentColors.primaryHover} shadow-md hover:shadow-lg border ${currentColors.border}`
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{theme.emoji}</span>
-                        <div className="font-semibold text-sm">
+                    <div className="flex items-center justify-between mb-1 md:mb-2">
+                      <div className="flex items-center gap-1 md:gap-2 min-w-0">
+                        <span className="text-base md:text-lg">{theme.emoji}</span>
+                        <div className="font-semibold text-xs md:text-sm truncate">
                           {theme.name}
                         </div>
                       </div>
-                      {getThemePreview(key)}
                     </div>
                     {currentTheme === key && (
-                      <div className="absolute top-2 right-2 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="absolute top-2 right-2 flex items-center justify-center">
+                        <div className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-green-500/30 animate-ping absolute"></div>
+                        <div className="relative w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full shadow-lg shadow-green-500/40 ring-2 ring-white"></div>
                       </div>
                     )}
                   </button>
@@ -960,20 +966,21 @@ const Chat = () => {
             </div>
           )}
 
-          <div className="p-4">
+          {/* Search Bar */}
+          <div className="p-2 md:p-4 flex-shrink-0">
             <div
               className={`relative ${currentColors.background} rounded-xl shadow-sm border ${currentColors.border}`}
             >
               <Search
-                className={`absolute left-3 top-3 ${currentColors.textSecondary}`}
-                size={18}
+                className={`absolute left-2 md:left-3 top-1/2 -translate-y-1/2 ${currentColors.textSecondary}`}
+                size={16}
               />
               <input
                 type="text"
                 placeholder="Search chats..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-3 ${
+                className={`w-full pl-8 md:pl-10 pr-8 py-2 md:py-3 text-sm md:text-base ${
                   currentColors.background
                 } ${
                   currentColors.text
@@ -985,18 +992,19 @@ const Chat = () => {
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className={`absolute right-3 top-3 ${currentColors.textSecondary} hover:text-red-500 transition-colors`}
+                  className={`absolute right-2 md:right-3 top-1/2 -translate-y-1/2 ${currentColors.textSecondary} hover:text-red-500 transition-colors`}
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               )}
             </div>
           </div>
 
+          {/* Chat List */}
           <div className="flex-1 overflow-y-auto">
             {filteredChats.length === 0 && searchQuery && (
               <div className="p-4 text-center">
-                <p className={`${currentColors.textSecondary}`}>
+                <p className={`${currentColors.textSecondary} text-sm md:text-base`}>
                   No chats found for "{searchQuery}"
                 </p>
               </div>
@@ -1012,8 +1020,8 @@ const Chat = () => {
               return (
                 <div
                   key={contact._id}
-                  onClick={() => setActiveContact(contact)}
-                  className={`p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${
+                  onClick={() => handleContactSelect(contact)}
+                  className={`p-3 md:p-4 cursor-pointer transition-all duration-200 hover:transform hover:scale-[1.02] ${
                     activeContact?._id === contact._id
                       ? currentColors.secondary +
                         " shadow-md border-l-4 " +
@@ -1021,34 +1029,34 @@ const Chat = () => {
                       : currentColors.primaryHover
                   } ${currentColors.border} border-b last:border-b-0`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    <div className="relative flex-shrink-0">
                       {isGroup ? (
                         <div
-                          className={`w-12 h-12 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}
+                          className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md`}
                         >
-                          <UsersIcon size={24} />
+                          <UsersIcon size={20} className="md:w-6 md:h-6" />
                         </div>
                       ) : (
                         <>
                           <img
                             src={otherUser?.profileImg}
                             alt={otherUser?.userName}
-                            className="w-12 h-12 rounded-full shadow-md object-cover"
+                            className="w-10 h-10 md:w-12 md:h-12 rounded-full shadow-md object-cover"
                           />
                           {isUserOnline(otherUser?._id) && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
                           )}
                         </>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium truncate">
+                      <div className="flex items-center justify-between gap-2">
+                        <h3 className="font-medium text-sm md:text-base truncate">
                           {isGroup ? contact.title : otherUser?.userName}
                         </h3>
                         <span
-                          className={`text-xs ${currentColors.textSecondary}`}
+                          className={`text-xs ${currentColors.textSecondary} flex-shrink-0`}
                         >
                           {new Date(contact.updatedAt).toLocaleTimeString([], {
                             hour: "2-digit",
@@ -1058,7 +1066,7 @@ const Chat = () => {
                       </div>
                       <div className="flex items-center justify-between">
                         <p
-                          className={`text-sm ${currentColors.textSecondary} truncate`}
+                          className={`text-xs md:text-sm ${currentColors.textSecondary} truncate`}
                         >
                           {isGroup ? (
                             `${contact.members.length} members`
@@ -1079,30 +1087,28 @@ const Chat = () => {
           </div>
         </div>
 
-        <div
-          className={`flex-1 flex flex-col ${
-            showThemeSelector ? "hidden sm:flex" : "flex"
-          }`}
-        >
+        {/* Main Chat Area */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Chat Header */}
           <div
-            className={`p-4 ${currentColors.surface} ${currentColors.border} border-b flex items-center justify-between shadow-lg backdrop-blur-sm`}
+            className={`p-3 md:p-4 ${currentColors.surface} ${currentColors.border} border-b flex items-center justify-between shadow-lg backdrop-blur-sm flex-shrink-0`}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
               <button
-                onClick={() => setShowThemeSelector(true)}
-                className={`sm:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105`}
+                onClick={() => setShowSidebar(true)}
+                className={`md:hidden p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 flex-shrink-0`}
               >
-                ←
+                <Menu size={20} />
               </button>
               {activeContact && (
                 <>
-                  <div className="relative">
+                  <div className="relative flex-shrink-0">
                     {activeContact.isGroup ? (
                       <div
-                        className={`w-10 h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
+                        className={`w-8 h-8 md:w-10 md:h-10 rounded-full ${currentColors.primary} flex items-center justify-center text-white font-bold shadow-md cursor-pointer`}
                         onClick={() => setShowGroupMembers(!showGroupMembers)}
                       >
-                        <UsersIcon size={20} />
+                        <UsersIcon size={16} className="md:w-5 md:h-5" />
                       </div>
                     ) : (
                       <>
@@ -1117,33 +1123,33 @@ const Chat = () => {
                               ? activeContact.receiver?.userName
                               : activeContact.sender?.userName
                           }
-                          className="w-10 h-10 rounded-full shadow-md object-cover"
+                          className="w-8 h-8 md:w-10 md:h-10 rounded-full shadow-md object-cover"
                         />
                         {isUserOnline(
                           activeContact.sender?.Email === senderEmail
                             ? activeContact.receiver?._id
                             : activeContact.sender?._id
                         ) && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                          <div className="absolute bottom-0 right-0 w-2 h-2 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-white"></div>
                         )}
                       </>
                     )}
                   </div>
                   <div
-                    className={activeContact.isGroup ? "cursor-pointer" : ""}
+                    className={`min-w-0 flex-1 ${activeContact.isGroup ? "cursor-pointer" : ""}`}
                     onClick={() =>
                       activeContact.isGroup &&
                       setShowGroupMembers(!showGroupMembers)
                     }
                   >
-                    <h2 className="font-semibold">
+                    <h2 className="font-semibold text-sm md:text-base truncate">
                       {activeContact.isGroup
                         ? activeContact.title
                         : activeContact.sender?.Email === senderEmail
                         ? activeContact.receiver?.userName
                         : activeContact.sender?.userName}
                     </h2>
-                    <p className={`text-xs ${currentColors.textSecondary}`}>
+                    <p className={`text-xs ${currentColors.textSecondary} truncate`}>
                       {activeContact.isGroup
                         ? `${activeContact.members.length} members`
                         : (() => {
@@ -1168,25 +1174,25 @@ const Chat = () => {
                 </>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {!activeContact?.isGroup ? (
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+              {!activeContact?.isGroup && (
                 <>
                   <button
                     onClick={() => sendInvite("audio")}
-                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                    className={`p-1.5 md:p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
                     title="Audio Call"
                   >
-                    <Phone size={20} />
+                    <Phone size={18} className="md:w-5 md:h-5" />
                   </button>
                   <button
                     onClick={() => sendInvite("video")}
-                    className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
+                    className={`p-1.5 md:p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-sm`}
                     title="Video Call"
                   >
-                    <Video size={20} />
+                    <Video size={18} className="md:w-5 md:h-5" />
                   </button>
                 </>
-              ) : null}
+              )}
               {isSignedIn && (
                 <div className="hidden md:flex items-center">
                   <UserButton />
@@ -1195,38 +1201,39 @@ const Chat = () => {
             </div>
           </div>
 
+          {/* Messages Area */}
           <div
-            className={`flex-1 overflow-y-auto p-4 ${currentColors.background} relative`}
+            className={`flex-1 overflow-y-auto p-3 md:p-4 ${currentColors.background} relative`}
           >
             {showGroupMembers && activeContact?.isGroup && (
               <div
-                className={`${currentColors.surface} rounded-lg shadow-xl p-4 mb-4 border ${currentColors.border}`}
+                className={`${currentColors.surface} rounded-lg shadow-xl p-3 md:p-4 mb-3 md:mb-4 border ${currentColors.border}`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-lg">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <h3 className="font-semibold text-base md:text-lg">
                     Group Members ({activeContact.members.length})
                   </h3>
                   <button
                     onClick={() => setShowGroupMembers(false)}
                     className={`p-1 rounded-full ${currentColors.primaryHover}`}
                   >
-                    <X size={20} />
+                    <X size={18} className="md:w-5 md:h-5" />
                   </button>
                 </div>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div className="space-y-2 max-h-48 md:max-h-60 overflow-y-auto">
                   {activeContact.members.map((member, idx) => (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
+                      className={`flex items-center gap-2 md:gap-3 p-2 rounded-lg ${currentColors.secondary} hover:opacity-80 transition-all`}
                     >
                       <img
                         src={member.profileImg}
                         alt={member.userName}
-                        className="w-10 h-10 rounded-full shadow-md object-cover"
+                        className="w-8 h-8 md:w-10 md:h-10 rounded-full shadow-md object-cover flex-shrink-0"
                       />
-                      <div>
-                        <p className="font-medium">{member.userName}</p>
-                        <p className={`text-xs ${currentColors.textSecondary}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm md:text-base truncate">{member.userName}</p>
+                        <p className={`text-xs ${currentColors.textSecondary} truncate`}>
                           {member.Email}
                         </p>
                       </div>
@@ -1236,7 +1243,7 @@ const Chat = () => {
               </div>
             )}
 
-            <div className="space-y-2 relative">
+            <div className="space-y-2 md:space-y-3 relative">
               {messages.map((msg) => {
                 const isOwnMessage = msg.senderEmail === senderEmail;
                 const hasOnlyEmoji = msg.emoji && !msg.text;
@@ -1257,14 +1264,13 @@ const Chat = () => {
                                 ? currentColors.messageOwn
                                 : currentColors.messageOther
                             }`
-                      } max-w-xs lg:max-w-md`}
+                      } max-w-[85%] sm:max-w-xs lg:max-w-md`}
                     >
                       {activeContact?.isGroup &&
                         !isOwnMessage &&
                         !hasOnlyEmoji && (
-                          <div className="flex items-center gap-2 mb-1 px-2">
+                          <div className="flex items-center gap-2 mb-1 px-2 pt-1">
                             {(() => {
-                              // Find sender info from activeContact members if not available in message
                               const senderInfo =
                                 msg.senderName && msg.senderProfileImg
                                   ? {
@@ -1291,14 +1297,14 @@ const Chat = () => {
                                     <img
                                       src={displayImg}
                                       alt={displayName}
-                                      className="w-7 h-7 rounded-full shadow-md object-cover"
+                                      className="w-5 h-5 md:w-6 md:h-6 rounded-full shadow-md object-cover"
                                       onError={(e) => {
                                         e.target.style.display = "none";
                                       }}
                                     />
                                   ) : (
                                     <div
-                                      className="w-7 h-7 rounded-full shadow-md flex items-center justify-center text-white text-xs font-bold"
+                                      className="w-5 h-5 md:w-6 md:h-6 rounded-full shadow-md flex items-center justify-center text-white text-xs font-bold"
                                       style={{
                                         backgroundColor: `hsl(${
                                           (((
@@ -1314,7 +1320,7 @@ const Chat = () => {
                                       {displayName.charAt(0).toUpperCase()}
                                     </div>
                                   )}
-                                  <p className="text-xs font-semibold opacity-75">
+                                  <p className="text-xs font-semibold opacity-75 truncate">
                                     {displayName}
                                   </p>
                                 </>
@@ -1332,10 +1338,10 @@ const Chat = () => {
                                   <img
                                     src={url}
                                     alt="attachment"
-                                    className="rounded-lg w-full max-w-sm object-cover cursor-pointer"
+                                    className="rounded-lg w-full object-cover cursor-pointer"
                                     style={{
-                                      maxHeight: "350px",
-                                      minWidth: "200px",
+                                      maxHeight: "300px",
+                                      minWidth: "150px",
                                     }}
                                   />
                                 </div>
@@ -1346,14 +1352,15 @@ const Chat = () => {
                                       isDark
                                         ? "bg-gray-700"
                                         : "bg-white bg-opacity-10"
-                                    } rounded-lg p-3 flex items-center gap-3 min-w-64`}
+                                    } rounded-lg p-2 md:p-3 flex items-center gap-2 md:gap-3`}
                                   >
-                                    <div className="bg-red-500 rounded-lg p-3 flex-shrink-0">
+                                    <div className="bg-red-500 rounded-lg p-2 md:p-3 flex-shrink-0">
                                       <svg
-                                        width="24"
-                                        height="24"
+                                        width="20"
+                                        height="20"
                                         viewBox="0 0 24 24"
                                         fill="white"
+                                        className="md:w-6 md:h-6"
                                       >
                                         <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zM6 20V4h7v5h5v11H6z" />
                                         <text
@@ -1369,7 +1376,7 @@ const Chat = () => {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <p
-                                        className={`text-sm font-medium truncate ${
+                                        className={`text-xs md:text-sm font-medium truncate ${
                                           isDark
                                             ? "text-white"
                                             : "text-gray-900"
@@ -1400,13 +1407,14 @@ const Chat = () => {
                                         isDark
                                           ? "bg-gray-600 hover:bg-gray-500"
                                           : "bg-white bg-opacity-20 hover:bg-opacity-30"
-                                      } rounded-full p-2 transition-all`}
+                                      } rounded-full p-1.5 md:p-2 transition-all`}
                                     >
                                       <svg
-                                        width="24"
-                                        height="24"
+                                        width="20"
+                                        height="20"
                                         viewBox="0 0 24 24"
                                         fill="currentColor"
+                                        className="md:w-6 md:h-6"
                                       >
                                         <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
                                       </svg>
@@ -1425,7 +1433,7 @@ const Chat = () => {
                             isOwnMessage ? "items-end" : "items-start"
                           }`}
                         >
-                          <span className="text-7xl leading-none mb-1">
+                          <span className="text-5xl md:text-7xl leading-none mb-1">
                             {msg.emoji}
                           </span>
                           <p
@@ -1437,13 +1445,13 @@ const Chat = () => {
                       ) : (
                         <>
                           {msg.text && (
-                            <div className="px-3 py-2">
+                            <div className="px-2 md:px-3 py-2">
                               <div className="flex items-start gap-2">
-                                <p className="text-sm leading-relaxed flex-1 break-words">
+                                <p className="text-xs md:text-sm leading-relaxed flex-1 break-words">
                                   {msg.text}
                                 </p>
                                 {msg.emoji && (
-                                  <span className="text-5xl leading-none flex-shrink-0">
+                                  <span className="text-3xl md:text-5xl leading-none flex-shrink-0">
                                     {msg.emoji}
                                   </span>
                                 )}
@@ -1451,7 +1459,7 @@ const Chat = () => {
                             </div>
                           )}
 
-                          <div className="flex items-center justify-end gap-1 px-3 pb-2 pt-1">
+                          <div className="flex items-center justify-end gap-1 px-2 md:px-3 pb-2 pt-1">
                             <p
                               className={`text-xs ${currentColors.textSecondary} opacity-60`}
                             >
@@ -1459,10 +1467,10 @@ const Chat = () => {
                             </p>
                             {isOwnMessage && (
                               <svg
-                                width="16"
-                                height="11"
+                                width="14"
+                                height="10"
                                 viewBox="0 0 16 11"
-                                className={`${currentColors.accent} opacity-60`}
+                                className={`${currentColors.accent} opacity-60 md:w-4 md:h-3`}
                               >
                                 <path
                                   d="M11.071.653a.5.5 0 0 0-.696.696L14.48 5.5l-4.105 4.151a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498zm-5 0a.5.5 0 0 0-.696.696L9.48 5.5 5.375 9.651a.5.5 0 0 0 .696.696l4.5-4.5a.5.5 0 0 0 0-.696l-4.5-4.498z"
@@ -1481,22 +1489,23 @@ const Chat = () => {
             </div>
           </div>
 
+          {/* Input Area */}
           <div
-            className={`p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg`}
+            className={`p-3 md:p-4 ${currentColors.surface} ${currentColors.border} border-t shadow-2xl backdrop-blur-lg flex-shrink-0`}
           >
             {selectedFiles.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
+              <div className="mb-2 md:mb-3 flex flex-wrap gap-2">
                 {selectedFiles.map((file, idx) => (
                   <div
                     key={idx}
-                    className={`flex items-center gap-2 px-3 py-2 ${currentColors.secondary} rounded-lg`}
+                    className={`flex items-center gap-2 px-2 md:px-3 py-1.5 md:py-2 ${currentColors.secondary} rounded-lg text-sm`}
                   >
                     {file.type.startsWith("image/") ? (
-                      <Image size={16} />
+                      <Image size={14} className="md:w-4 md:h-4" />
                     ) : (
-                      <File size={16} />
+                      <File size={14} className="md:w-4 md:h-4" />
                     )}
-                    <span className="text-sm truncate max-w-[150px]">
+                    <span className="text-xs md:text-sm truncate max-w-[100px] md:max-w-[150px]">
                       {file.name}
                     </span>
                     <button
@@ -1507,7 +1516,7 @@ const Chat = () => {
                       }
                       className="text-red-500 hover:text-red-700"
                     >
-                      <X size={16} />
+                      <X size={14} className="md:w-4 md:h-4" />
                     </button>
                   </div>
                 ))}
@@ -1515,12 +1524,12 @@ const Chat = () => {
             )}
 
             {Object.entries(uploadProgress).map(([id, progress]) => (
-              <div key={id} className="mb-3">
-                <div className={`${currentColors.secondary} rounded-lg p-3`}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <File size={20} className={currentColors.textSecondary} />
-                    <span className="text-sm flex-1">Uploading...</span>
-                    <span className="text-sm font-medium">{progress}%</span>
+              <div key={id} className="mb-2 md:mb-3">
+                <div className={`${currentColors.secondary} rounded-lg p-2 md:p-3`}>
+                  <div className="flex items-center gap-2 md:gap-3 mb-2">
+                    <File size={18} className={`${currentColors.textSecondary} md:w-5 md:h-5`} />
+                    <span className="text-xs md:text-sm flex-1">Uploading...</span>
+                    <span className="text-xs md:text-sm font-medium">{progress}%</span>
                   </div>
                   <div
                     className={`w-full ${
@@ -1538,17 +1547,20 @@ const Chat = () => {
 
             {showEmojiPicker && (
               <div
-                className="fixed bottom-24 right-4 z-[100]"
-                style={{ maxHeight: "400px" }}
+                className="fixed bottom-20 md:bottom-24 right-2 md:right-4 z-[100]"
+                style={{ maxHeight: "350px" }}
               >
                 <EmojiPicker
                   onEmojiClick={handleEmojiClick}
                   theme={isDark ? "dark" : "light"}
+                  height={300}
+                  width={280}
+                  className="md:!w-[350px] md:!h-[400px]"
                 />
               </div>
             )}
 
-            <div className="flex items-end gap-3">
+            <div className="flex items-end gap-2 md:gap-3">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1558,9 +1570,9 @@ const Chat = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
+                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg flex-shrink-0`}
               >
-                <Paperclip size={20} />
+                <Paperclip size={18} className="md:w-5 md:h-5" />
               </button>
               <div
                 className={`flex-1 ${currentColors.background} rounded-2xl ${currentColors.border} border shadow-lg backdrop-blur-sm`}
@@ -1571,39 +1583,172 @@ const Chat = () => {
                   onKeyPress={handleKeyPress}
                   placeholder="Type a message..."
                   rows={1}
-                  className={`w-full px-4 py-3 ${currentColors.background} ${
+                  className={`w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base ${currentColors.background} ${
                     currentColors.text
                   } rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-opacity-50 ${currentColors.primary.replace(
                     "bg-",
                     "focus:ring-"
-                  )} max-h-32 transition-all duration-200 placeholder-opacity-60`}
-                  style={{ minHeight: "48px" }}
+                  )} max-h-24 md:max-h-32 transition-all duration-200 placeholder-opacity-60`}
+                  style={{ minHeight: "40px" }}
                 />
               </div>
               <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg`}
+                className={`p-2 rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-lg flex-shrink-0`}
               >
-                <Smile size={20} />
+                <Smile size={18} className="md:w-5 md:h-5" />
               </button>
               {message.trim() || selectedFiles.length > 0 ? (
                 <button
                   onClick={handleSendMessage}
-                  className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse`}
+                  className={`p-2 md:p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform animate-pulse flex-shrink-0`}
                 >
-                  <Send size={20} />
+                  <Send size={18} className="md:w-5 md:h-5" />
                 </button>
               ) : (
                 <button
-                  className={`p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform`}
+                  className={`p-2 md:p-3 ${currentColors.primary} text-white rounded-full ${currentColors.primaryHover} transition-all duration-200 hover:scale-110 shadow-xl hover:shadow-2xl transform flex-shrink-0`}
                 >
-                  <Send size={20} />
+                  <Send size={18} className="md:w-5 md:h-5" />
                 </button>
               )}
             </div>
           </div>
         </div>
+
+        {/* Sidebar Overlay for Mobile */}
+        {showSidebar && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
       </div>
+
+      <style jsx>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(5px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-slideDown {
+          animation: slideDown 0.3s ease-out;
+        }
+
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Custom scrollbar styles */
+        ::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: ${isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
+          border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: ${isDark ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
+        }
+
+        /* Smooth transitions */
+        * {
+          transition-property: background-color, border-color, color, fill, stroke;
+          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+          transition-duration: 150ms;
+        }
+
+        /* Mobile-specific optimizations */
+        @media (max-width: 768px) {
+          .animate-fadeIn {
+            animation-duration: 0.2s;
+          }
+          
+          .animate-slideDown {
+            animation-duration: 0.2s;
+          }
+        }
+
+        /* Prevent text selection on buttons */
+        button {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+        }
+
+        /* Better touch targets for mobile */
+        @media (max-width: 768px) {
+          button {
+            min-width: 40px;
+            min-height: 40px;
+          }
+        }
+
+        /* Smooth emoji picker appearance */
+        .emoji-picker-react {
+          transition: opacity 0.2s ease-in-out;
+        }
+
+        /* Better focus states for accessibility */
+        *:focus-visible {
+          outline: 2px solid ${currentColors.primary.replace('bg-', '')};
+          outline-offset: 2px;
+        }
+
+        /* Prevent layout shift on scroll */
+        html {
+          overflow-y: scroll;
+          scrollbar-gutter: stable;
+        }
+
+        /* Optimize touch scrolling on iOS */
+        .overflow-y-auto {
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* Better image loading */
+        img {
+          image-rendering: -webkit-optimize-contrast;
+        }
+
+        /* Prevent text overflow issues */
+        .truncate {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Ensure textarea resizes properly */
+        textarea {
+          field-sizing: content;
+          max-height: inherit;
+        }
+      `}</style>
     </>
   );
 };
