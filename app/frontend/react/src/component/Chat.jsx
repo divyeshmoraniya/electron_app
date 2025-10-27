@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Send,
   Phone,
@@ -24,12 +24,18 @@ import "react-toastify/dist/ReactToastify.css";
 import io from "socket.io-client";
 import EmojiPicker from "emoji-picker-react";
 import themes from "./theme.js";
+import useChatSocket from "../hooks/useChatSocket.js";
 
 // zego import
 import { ZegoUIKitPrebuilt } from "@zegocloud/zego-uikit-prebuilt";
 import { ZIM } from "zego-zim-web";
 import { useDarkStore, useThemseStore } from "../store/themeStore.js";
-import { getLastSeenText, handleDownload, scrollToBottom } from "../utils/chatUtils.js";
+import {
+  getLastSeenText,
+  handleDownload,
+  scrollToBottom,
+} from "../utils/chatUtils.js";
+import { getThemePreview } from "./themePreview.jsx";
 
 const Chat = () => {
   ////////////////////////////////
@@ -48,7 +54,7 @@ const Chat = () => {
   //                            //
   ////////////////////////////////
 
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(darkState);
   const [currentTheme, setCurrentTheme] = useState(current_theme);
   const [message, setMessage] = useState("");
   const [chat, setChats] = useState([]);
@@ -86,6 +92,49 @@ const Chat = () => {
     setSocket(newSocket);
     return () => newSocket.close();
   }, []);
+
+  ////////////////////////////////
+  //                            //
+  //    Fetch Chats of User     //
+  //                            //
+  ////////////////////////////////
+
+  const fetchChats = useCallback(async () => {
+    try {
+      const res = await axios.get(
+        `${
+          import.meta.env.VITE_BACKEND_URL
+        }/api/chat/getchat/${encodeURIComponent(senderEmail)}`
+      );
+      const transformedChats = res.data.conversations.map((conv) => {
+        const otherMember = conv.members.find((m) => m.Email !== senderEmail);
+        const currentMember = conv.members.find((m) => m.Email === senderEmail);
+
+        if (currentMember && currentMember._id && !currentUserMongoId) {
+          setCurrentUserMongoId(currentMember._id);
+        }
+
+        return {
+          ...conv,
+          sender: currentMember,
+          receiver: otherMember,
+          isGroup: conv.members.length > 2,
+        };
+      });
+      setChats(transformedChats);
+    } catch (error) {
+      console.error(error);
+    }
+  }, [senderEmail, currentUserMongoId]);
+
+  useChatSocket({
+    socket,
+    currentUserMongoId,
+    setOnlineUsers,
+    setMessages,
+    activeContact,
+    fetchChats,
+  });
 
   useEffect(() => {
     if (socket && currentUserMongoId) {
@@ -167,40 +216,6 @@ const Chat = () => {
       };
     }
   }, [socket]);
-
-  ////////////////////////////////
-  //                            //
-  //    Fetch Chats of User     //
-  //                            //
-  ////////////////////////////////
-
-  const fetchChats = async () => {
-    try {
-      const res = await axios.get(
-        `${
-          import.meta.env.VITE_BACKEND_URL
-        }/api/chat/getchat/${encodeURIComponent(senderEmail)}`
-      );
-      const transformedChats = res.data.conversations.map((conv) => {
-        const otherMember = conv.members.find((m) => m.Email !== senderEmail);
-        const currentMember = conv.members.find((m) => m.Email === senderEmail);
-
-        if (currentMember && currentMember._id && !currentUserMongoId) {
-          setCurrentUserMongoId(currentMember._id);
-        }
-
-        return {
-          ...conv,
-          sender: currentMember,
-          receiver: otherMember,
-          isGroup: conv.members.length > 2,
-        };
-      });
-      setChats(transformedChats);
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   const fetchMessages = async (conversationId) => {
     try {
@@ -502,19 +517,6 @@ const Chat = () => {
         : [...prev, chatId]
     );
   };
-
-  const getThemePreview = (themeKey) => {
-    const theme = themes[themeKey][darkState ? "dark" : "light"];
-    return (
-      <div className="flex gap-1">
-        <div className={`w-3 h-3 rounded-full ${theme.primary}`}></div>
-        <div className={`w-3 h-3 rounded-full ${theme.messageOwn}`}></div>
-        <div className={`w-3 h-3 rounded-full ${theme.secondary}`}></div>
-      </div>
-    );
-  };
-
-
 
   const isUserOnline = (userId) => {
     if (!userId || !onlineUsers || onlineUsers.length === 0) {
@@ -1601,35 +1603,6 @@ const Chat = () => {
             </div>
           </div>
         </div>
-
-        <style jsx>{`
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          @keyframes slideDown {
-            from {
-              opacity: 0;
-              transform: translateY(-20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out;
-          }
-          .animate-slideDown {
-            animation: slideDown 0.3s ease-out;
-          }
-        `}</style>
       </div>
     </>
   );

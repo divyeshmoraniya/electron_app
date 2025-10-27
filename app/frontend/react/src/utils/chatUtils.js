@@ -1,3 +1,5 @@
+import themes from "../component/theme";
+
 export const getLastSeenText = (lastSeen) => {
   if (!lastSeen) return "Offline";
 
@@ -22,17 +24,17 @@ export const scrollToBottom = (messagesEndRef) => {
 };
 
 export const handleDownload = async (url, filename) => {
-    try {
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename || "download";
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Failed to download file");
-    }
-  };
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename || "download";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Download failed:", error);
+    toast.error("Failed to download file");
+  }
+};
