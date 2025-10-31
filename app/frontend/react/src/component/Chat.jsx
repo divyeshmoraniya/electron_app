@@ -82,6 +82,7 @@ const Chat = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [chatAddLoader,setChatAddLoader] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const { isSignedIn } = useAuth();
@@ -307,6 +308,8 @@ const Chat = () => {
       }
     } catch (error) {
       toast.error("User not found");
+    } finally {
+      setChatAddLoader(false);
     }
   };
 
@@ -498,6 +501,7 @@ const Chat = () => {
   };
 
   const handleAddChat = async () => {
+    setChatAddLoader(true);
     if (newChatEmail.trim()) {
       await addchat();
       setNewChatEmail("");
@@ -903,7 +907,9 @@ const Chat = () => {
                   disabled={!newChatEmail.trim()}
                   className={`w-full py-2 md:py-3 px-3 md:px-4 text-sm md:text-base ${currentColors.primary} text-white rounded-xl ${currentColors.primaryHover} transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
                 >
-                  Add Chat
+                  {
+                    chatAddLoader ? "Adding Chat..." : "Add Chat"
+                  }
                 </button>
               </div>
             </div>
