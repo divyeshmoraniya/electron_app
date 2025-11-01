@@ -21,7 +21,8 @@ const createWindow = () => {
 
   });
 
-  win.loadURL("http://localhost:5173"); // dev
+  // win.loadURL("http://localhost:5173"); // dev
+  win.loadURL("https://electron-app-9lgr.onrender.com/");
 
 
   // win.loadFile(path.join(__dirname, "..", "react", "dist", "index.html"));
