@@ -1,0 +1,1 @@
+export const MASTER_KEY = process.env.MASTER_KEY;
