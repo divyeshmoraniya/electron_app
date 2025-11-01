@@ -25,17 +25,29 @@
     "zustand": "^5.0.8"
   },
   "build": {
-    "appId": "com.Takify.desktop",
+    "appId": "com.takify.desktop",
     "productName": "Takify",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "**/*"
     ],
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "icon": "build/icon.ico"                 
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Takify",
+      "installerIcon": "build/icon.ico",        
+      "uninstallerIcon": "build/icon.ico",      
+      "installerHeaderIcon": "build/icon.ico"  
     }
   }
 }
